@@ -39,7 +39,7 @@ Unlike phone-native settings buried in menus, our app puts awareness and self-co
 ## Team Roles
 - **Product Owner:** [Name]  
 - **Scrum Master:** [Name]  
-- **Developers:** [Names]  
+- **Developers:** Danielle Foege  
 
 ## Contributing
 1. Create a feature branch  
