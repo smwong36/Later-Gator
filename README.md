@@ -33,7 +33,7 @@ This section will be updated as our choices solidify.
 ---
 
 ## Team Roles 👥
-- **Product Owner:** [Name]  
+- **Product Owner:** Samantha Wong  
 - **Scrum Master:** [Name]  
 - **Developers:** Danielle Foege and Carrie Ruble
 
