@@ -37,7 +37,7 @@ Unlike phone-native settings buried in menus, our app puts awareness and self-co
    ```
 
 ## Team Roles
-- **Product Owner:** [Name]  
+- **Product Owner:** Samantha Wong  
 - **Scrum Master:** [Name]  
 - **Developers:** Danielle Foege  
 
