@@ -2,7 +2,7 @@
 # --------------------------------------------------------
 # PM: Samantha Wong		@smwong36
 # SM: Madison Holt		@Madison-Holt
-# Dev: Danielle Foege		@daniellefoege
+# Dev: Danielle Foege	@daniellefoege
 # Dev: Carrie Ruble		@CouldBeYourMom
 
 
@@ -10,10 +10,11 @@
 # Note: Adding them here would give write-review rights — so we intentionally omit.
 # --------------------------------------------------------
 # Instructor: Lisha Zhou	@zhoulisha
-# TA: Henrique Batista      	@ricks05
+# TA: Henrique Batista    @ricks05
 
 
 # 📝 CODEOWNERS – Active Paths and Ownership
 ----------------------------------------------------------
 README.md          @daniellefoege @Madison-Holt @CouldBeYourMom @smwong36
+
 .circleci/*        @daniellefoege @Madison-Holt @CouldBeYourMom @smwong36
