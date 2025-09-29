@@ -54,6 +54,14 @@ A record of challenges our team faced during the CEN3031 project, how we solved 
 
 ---
 
+### 6. User Story Categorization Awareness (9/27/25)  
+- **Challenge**: While drafting user stories, we often struggled with which category a feature belonged in and slipped into describing features from a technical perspective rather than from the user’s experience.  
+- **Impact**: This created confusion in how stories were grouped and risked losing the user-centered framing that user stories are meant to emphasize.  
+- **Resolution**: The process of refining and categorizing helped us recognize this tendency early and redirect focus back to the user perspective.  
+- **Interview Framing**: *“We learned the importance of structuring user stories around the user’s experience rather than technical implementation, and became more intentional about how categorization shapes clarity.”*  
+
+---
+
 ## Notes for Future Tracking
 - Add new entries as they happen (with date if helpful).  
 - Use this file as a reflection tool before presentations or interviews.  
