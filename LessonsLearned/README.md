@@ -62,6 +62,14 @@ A record of challenges our team faced during the CEN3031 project, how we solved 
 
 ---
 
+### 7. Diagram Design and Structural Clarity (10/16/25)  
+- **Challenge**: Designing diagrams proved difficult, as the structure and logic didn’t fully click for everyone at first. Our initial approach with wireframes and a 2D swim lane model led to confusion about how layers and user journeys aligned.
+- **Impact**: The lack of clarity slowed development and made it harder to visualize how different parts of the app and technologies interacted within the layered architecture.
+- **Resolution**: By stepping back to analyze smaller components individually and referencing our wireframes, notes, and user stories, we reorganized our approach into a more intuitive flowchart of the Later Gator App. This clarified functional connections, prompted discussion of design trade-offs, and led us to reintroduce a business logic layer for greater structure and realism.  
+- **Interview Framing**: *“We learned that breaking complex systems into smaller, understandable parts—and iterating on visual models—helped us transform initial confusion into clarity and create a more cohesive architectural design.”*  
+
+---
+
 ## Notes for Future Tracking
 - Add new entries as they happen (with date if helpful).  
 - Use this file as a reflection tool before presentations or interviews.  
