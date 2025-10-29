@@ -17,7 +17,11 @@ import com.latergator.data.entities.*
         TimeLimitHit::class,
         UsageSession::class,
         Event::class,
-        WeeklySnapshot::class
+        WeeklySnapshot::class,
+         // Pack 2 — Modes + Snooze
+        ModeSettings::class,
+        SnoozePrefs::class,
+        SnoozeLedger::class
         // Additional packs will be added here as you import them (Mode, Snooze, etc.)
     ],
     version = 1,
@@ -27,6 +31,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     // DAO references
     abstract fun coreDao(): CoreDao
+    abstract fun modeDao(): ModeDao
+    abstract fun snoozeDao(): SnoozeDao
     // (each new pack will add its DAO method here later)
 
     companion object {
