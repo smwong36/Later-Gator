@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "kotlin-kapt"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -116,4 +117,11 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Room components
+    implementation ("androidx.room:room-runtime:2.6.1")
+    annotationProcessor "androidx.room:room-compiler:2.6.1"
+
+    // Kotlin extensions and coroutines support for Room
+    implementation ("androidx.room:room-ktx:2.6.1")
 }
