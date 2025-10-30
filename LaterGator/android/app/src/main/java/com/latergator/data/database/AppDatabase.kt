@@ -18,10 +18,16 @@ import com.latergator.data.entities.*
         UsageSession::class,
         Event::class,
         WeeklySnapshot::class,
-         // Pack 2 — Modes + Snooze
         ModeSettings::class,
         SnoozePrefs::class,
-        SnoozeLedger::class
+        SnoozeLedger::class,
+        PomodoroPrefs::class,
+        PomodoroLedger::class,
+        ReflectionPrefs::class,
+        ReflectionSessions::class,
+        Goals::class,
+        CheckinPrefs::class,
+        CheckinLedger::class
         // Additional packs will be added here as you import them (Mode, Snooze, etc.)
     ],
     version = 1,
@@ -33,6 +39,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun coreDao(): CoreDao
     abstract fun modeDao(): ModeDao
     abstract fun snoozeDao(): SnoozeDao
+    abstract fun pomodoroDao(): PomodoroDao
+    abstract fun reflectionsDao(): ReflectionsDao
+    abstract fun goalsDao(): GoalsDao
+    abstract fun checkinDao(): CheckinDao
     // (each new pack will add its DAO method here later)
 
     companion object {
