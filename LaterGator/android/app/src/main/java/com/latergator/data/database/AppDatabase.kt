@@ -27,7 +27,20 @@ import com.latergator.data.entities.*
         ReflectionSessions::class,
         Goals::class,
         CheckinPrefs::class,
-        CheckinLedger::class
+        CheckinLedger::class,
+        SleepPrefs::class,
+        SleepNudgesLedger::class,
+        PointsLedger::class,
+        Streaks::class,
+        Badges::class,
+        EarnedBadges::class,
+        BaselineUsage::class,
+        EmergencyPrefs::class,
+        EmergencyAllowedApps::class,
+        NotificationPrefs::class,
+        SecurityPrefs::class,
+        CalendarPrefs::class,
+        CalendarEventsCache::class
         // Additional packs will be added here as you import them (Mode, Snooze, etc.)
     ],
     version = 1,
@@ -43,6 +56,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reflectionsDao(): ReflectionsDao
     abstract fun goalsDao(): GoalsDao
     abstract fun checkinDao(): CheckinDao
+    abstract fun sleepDao(): SleepDao
+    abstract fun rewardDao(): RewardDao
+    abstract fun emergencyDao(): EmergencyDao
+    abstract fun notificationDao(): NotificationDao
+    abstract fun calendarDao(): CalendarDao
+    abstract fun securityDao(): SecurityDao
     // (each new pack will add its DAO method here later)
 
     companion object {
