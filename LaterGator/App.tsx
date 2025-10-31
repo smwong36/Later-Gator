@@ -3,8 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { StatusBar, ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { configureGoogleSignIn } from './src/features/auth/api/authService';
-import AppNavigator from './src/navigation/AppNavigator';
+import { configureGoogleSignIn } from './android/app/src/features/auth/api/authService';
+import AppNavigator from './android/app/src/navigation/AppNavigator';
 
 const App = () => {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
