@@ -19,6 +19,7 @@ android/build/
 android/app/build/
 android/local.properties
 android/*.keystore
+android/app/google-services.json
 !android/debug.keystore
 *.hprof
 *.cxx/
