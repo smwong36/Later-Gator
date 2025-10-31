@@ -100,3 +100,4 @@ jest-cache/
 *.db
 .env
 .env.local
+package-lock.json
