@@ -5,6 +5,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, Button, ActivityIndicator, Alert } from 'react-native';
 import { signOut } from '../features/auth/api/authService';
+import PomodoroScreen from '../features/pomodoro/PomodoroScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -40,11 +41,11 @@ const HomeScreen = () => {
   );
 };
 
-const PomodoroScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Pomodoro</Text>
-  </View>
-);
+// const PomodoroScreen = () => (
+//   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+//     <Text>Pomodoro</Text>
+//   </View>
+// );
 
 const SettingsScreen = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
