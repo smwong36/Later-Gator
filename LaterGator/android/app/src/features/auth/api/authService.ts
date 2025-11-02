@@ -4,13 +4,16 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 // Initialize once at app startup
 export const configureGoogleSignIn = () => {
   GoogleSignin.configure({
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com', // from Firebase Console
+    webClientId: '958331286313-nvkgljsm8nuf6vulq2mtlrk1jjeoou8n.apps.googleusercontent.com', // from google-services-json
   });
 };
 
 export const signInWithGoogle = async () => {
   try {
-    const { idToken } = await GoogleSignin.signIn();
+    
+    await GoogleSignin.signIn();
+    //const { idToken } = await GoogleSignin.signIn();
+    const { idToken } = await GoogleSignin.getTokens();
     const googleCredential = auth.GoogleAuthProvider.credential(idToken);
     return auth().signInWithCredential(googleCredential);
   } catch (error) {

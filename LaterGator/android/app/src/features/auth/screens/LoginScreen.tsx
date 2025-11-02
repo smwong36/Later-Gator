@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Button, Text, StyleSheet, Image } from 'react-native';
+import { View, Button, Text, Image, Pressable } from 'react-native';
 import { signInWithGoogle } from '../api/authService';
+import { styles } from '../../../styles';
 
 const LoginScreen = () => {
   const handleGoogleLogin = async () => {
@@ -14,19 +15,14 @@ const LoginScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../../../assets/logo.png')}
-        style={{ width: 120, height: 120, marginBottom: 32 }}
-      />
-      <Text style={styles.title}>Welcome to LaterGator</Text>
-      <Button title="Continue with Google" onPress={handleGoogleLogin} />
+      <View style ={styles.loginContainer}>
+        <Text style={{...styles.heading, fontSize:30}}>Welcome to LaterGator</Text>
+        <Pressable style={styles.buttonAccent} onPress={handleGoogleLogin}>
+          <Text style={{...styles.buttonText}}>Continue with Google</Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  title: { fontSize: 22, fontWeight: '600', marginBottom: 24 },
-});
 
 export default LoginScreen;
