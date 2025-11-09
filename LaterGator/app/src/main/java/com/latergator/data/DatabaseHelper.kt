@@ -1,4 +1,4 @@
-package com.latergator
+package com.latergator.data
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
