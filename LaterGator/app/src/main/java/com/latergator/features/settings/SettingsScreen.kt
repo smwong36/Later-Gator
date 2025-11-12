@@ -1,4 +1,4 @@
-package com.latergator.features.profile
+package com.latergator.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,29 +13,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.latergator.R
-import com.latergator.ui.components.NavigationButton
 
 @Composable
-fun HomeScreen(navController: NavHostController, onSignOut: () -> Unit) {
+fun SettingsScreen(navController: NavHostController) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(stringResource(R.string.home_screen_title), modifier = Modifier.padding(bottom = 32.dp))
-
-        NavigationButton(
-            text = stringResource(R.string.pomodoro_timer_button),
-            onClick = { navController.navigate("pomodoro") }
-        )
-
-        NavigationButton(
-            text = stringResource(R.string.settings_button),
-            onClick = { navController.navigate("settings") }
-        )
-
-        Button(onClick = onSignOut, modifier = Modifier.padding(top = 32.dp)) {
-            Text(stringResource(R.string.sign_out))
+        Text(stringResource(R.string.settings_screen_title))
+        Button(onClick = { navController.popBackStack() }, modifier = Modifier.padding(top = 16.dp)) {
+            Text(stringResource(R.string.back_to_home))
         }
     }
 }

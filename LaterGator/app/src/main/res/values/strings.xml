@@ -1,4 +1,26 @@
 <resources>
     <string name="app_name">LaterGator</string>
     <string name="default_web_client_id">958331286313-nvkgljsm8nuf6vulq2mtlrk1jjeoou8n.apps.googleusercontent.com</string>
+
+    <!-- General -->
+    <string name="back_to_home">Back to Home</string>
+    <string name="sign_out">Sign Out</string>
+
+    <!-- Home Screen -->
+    <string name="home_screen_title">Home Screen</string>
+    <string name="pomodoro_timer_button">Pomodoro Timer</string>
+    <string name="settings_button">Settings</string>
+
+    <!-- Pomodoro Screen -->
+    <string name="pomodoro_screen_title">Pomodoro</string>
+    <string name="pomodoro_start_button">Start</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_screen_title">Settings Screen</string>
+
+    <!-- Auth Errors -->
+    <string name="auth_error_firebase">Firebase Sign-In failed</string>
+    <string name="auth_error_google_account_null">Google Sign-In was successful but the account was null.</string>
+    <string name="auth_error_google_failed">Google Sign-In failed</string>
+    <string name="auth_error_generic">Sign-in failed. Please try again. (Result code: %1$d)</string>
 </resources>

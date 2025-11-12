@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -69,20 +71,20 @@ class MainActivity : ComponentActivity() {
                                 if (success) {
                                     isSignedIn = true
                                 } else {
-                                    signInError = errorMessage ?: "Firebase Sign-In failed"
+                                    signInError = errorMessage ?: getString(R.string.auth_error_firebase)
                                     Log.e("AUTH", signInError!!)
                                 }
                             }
                         } else {
-                            signInError = "Google Sign-In was successful but the account was null."
+                            signInError = getString(R.string.auth_error_google_account_null)
                             Log.e("AUTH", signInError!!)
                         }
                     } else {
-                        signInError = task.exception?.message ?: "Google Sign-In failed"
+                        signInError = task.exception?.message ?: getString(R.string.auth_error_google_failed)
                         Log.e("AUTH", signInError!!, task.exception)
                     }
                 } else {
-                    signInError = "Sign-in failed. Please try again. (Result code: ${result.resultCode})"
+                    signInError = getString(R.string.auth_error_generic, result.resultCode)
                     Log.e("AUTH", signInError!!)
                 }
             }
