@@ -5,6 +5,7 @@
     <!-- General -->
     <string name="back_to_home">Back to Home</string>
     <string name="sign_out">Sign Out</string>
+    <string name="done">Done</string>
 
     <!-- Home Screen -->
     <string name="home_screen_title">Home Screen</string>
@@ -17,6 +18,16 @@
 
     <!-- Settings Screen -->
     <string name="settings_screen_title">Settings Screen</string>
+    <string name="usage_permission_label">Usage Access Permission</string>
+    <string name="usage_permission_status">Status: %1$s</string>
+    <string name="usage_permission_granted">Granted</string>
+    <string name="usage_permission_not_granted">Not Granted</string>
+    <string name="usage_permission_button">Grant Permission</string>
+    <string name="tracked_apps_title">Tracked Apps</string>
+    <string name="manage_apps_button">Manage</string>
+
+    <!-- Select Apps Screen -->
+    <string name="select_apps_screen_title">Select Apps to Track</string>
 
     <!-- Auth Errors -->
     <string name="auth_error_firebase">Firebase Sign-In failed</string>

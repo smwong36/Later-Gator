@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.latergator.features.pomodoro.PomodoroScreen
 import com.latergator.features.profile.HomeScreen
+import com.latergator.features.settings.SelectAppsScreen
 import com.latergator.features.settings.SettingsScreen
 
 @Composable
@@ -30,5 +31,6 @@ fun AppNavHost(
         composable("home") { HomeScreen(navController, onSignOut = onSignOut) }
         composable("pomodoro") { PomodoroScreen(navController) }
         composable("settings") { SettingsScreen(navController) }
+        composable("select_apps") { SelectAppsScreen(navController) }
     }
 }

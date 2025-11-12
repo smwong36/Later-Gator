@@ -1,7 +1,6 @@
 package com.latergator
 
 import android.app.Activity
-import android.database.Cursor
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -15,12 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +61,7 @@ class MainActivity : ComponentActivity() {
                     if (task.isSuccessful) {
                         val account = task.result
                         if (account != null) {
-                            AuthManager.handleSignInResult(account) { success, errorMessage ->
+                            AuthManager.handleSignInResult(this, account) { success, errorMessage ->
                                 if (success) {
                                     isSignedIn = true
                                 } else {
@@ -91,28 +85,16 @@ class MainActivity : ComponentActivity() {
 
             LaterGatorTheme {
                 if (isSignedIn) {
+                    // This effect runs once when the app starts with a user already signed in.
                     val context = LocalContext.current
                     LaunchedEffect(Unit) {
-                        withContext(Dispatchers.IO) { // Move DB operations to a background thread
-                            var cursor: Cursor? = null
-                            try {
-                                val dbHelper = DatabaseHelper(context)
-                                val db = dbHelper.readableDatabase
-                                cursor = db.rawQuery("SELECT * FROM Profile", null)
-                                Log.d("DB_TEST", "Found ${cursor.count} profiles in the local database.")
-                                while (cursor.moveToNext()) {
-                                    val idIndex = cursor.getColumnIndex("id")
-                                    val nameIndex = cursor.getColumnIndex("name")
-
-                                    val id = if (idIndex != -1) cursor.getInt(idIndex) else -1
-                                    val name = if (nameIndex != -1) cursor.getString(nameIndex) else "N/A"
-
-                                    Log.d("DB_TEST", "Profile ID: $id | Name: $name")
+                        auth.currentUser?.displayName?.let { name ->
+                            if (name.isNotBlank()) {
+                                withContext(Dispatchers.IO) {
+                                    val dbHelper = DatabaseHelper(context)
+                                    dbHelper.saveUserProfile(name)
+                                    Log.d("AUTH", "Saved profile for already signed-in user: $name")
                                 }
-                            } catch (e: Exception) {
-                                Log.e("DB_TEST", "Error reading from local database", e)
-                            } finally {
-                                cursor?.close() // Ensure the cursor is always closed
                             }
                         }
                     }
