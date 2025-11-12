@@ -1,31 +1,26 @@
 package com.latergator.features.pomodoro
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.latergator.ui.theme.LaterGatorTheme
-
-class PomodoroScreen : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            LaterGatorTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    PomodoroContent()
-                }
-            }
-        }
-    }
-}
+import androidx.navigation.NavHostController
+import com.latergator.R
 
 @Composable
-fun PomodoroContent() {
+fun PomodoroScreen(navController: NavHostController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -33,7 +28,7 @@ fun PomodoroContent() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Pomodoro", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.pomodoro_screen_title), style = MaterialTheme.typography.headlineMedium)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -50,13 +45,13 @@ fun PomodoroContent() {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(onClick = { /* TODO: start timer */ }) {
-                    Text("Start")
+                    Text(stringResource(R.string.pomodoro_start_button))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedButton(onClick = { /* TODO: go back */ }) {
-                    Text("Back")
+                Button(onClick = { navController.popBackStack() }) {
+                    Text(stringResource(R.string.back_to_home))
                 }
             }
         }

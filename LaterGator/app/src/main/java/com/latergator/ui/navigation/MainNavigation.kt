@@ -1,26 +1,36 @@
 package com.latergator.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.latergator.features.profile.HomeScreen
 import com.latergator.features.pomodoro.PomodoroScreen
-// Add more imports here as you add screens
+import com.latergator.features.profile.HomeScreen
+import com.latergator.features.settings.SelectAppsScreen
+import com.latergator.features.settings.SettingsScreen
 
 @Composable
-fun MainNavigation() {
+fun MainNavigation(modifier: Modifier = Modifier, onSignOut: () -> Unit) {
     val navController = rememberNavController()
-    AppNavHost(navController = navController)
+    AppNavHost(
+        navController = navController,
+        modifier = modifier,
+        onSignOut = onSignOut
+    )
 }
 
 @Composable
-fun AppNavHost(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") { HomeScreen(navController) }
-        composable("pomodoro") { PomodoroScreen() }
-        // composable("settings") { SettingsScreen() }
-        // Add more composable routes as needed
+fun AppNavHost(
+    navController: NavHostController,
+    modifier: Modifier = Modifier,
+    onSignOut: () -> Unit
+) {
+    NavHost(navController = navController, startDestination = "home", modifier = modifier) {
+        composable("home") { HomeScreen(navController, onSignOut = onSignOut) }
+        composable("pomodoro") { PomodoroScreen(navController) }
+        composable("settings") { SettingsScreen(navController) }
+        composable("select_apps") { SelectAppsScreen(navController) }
     }
 }
