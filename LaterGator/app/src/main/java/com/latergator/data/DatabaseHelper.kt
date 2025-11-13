@@ -1,118 +1,139 @@
 package com.latergator.data
 
-import android.content.ContentValues
 import android.content.Context
+import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 
-class DatabaseHelper(context: Context) :
+class DatabaseHelper(private val context: Context) :
     SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
 
     companion object {
         private const val DB_NAME = "latergator.db"
-        private const val DB_VERSION = 3
-
-        // Table Names
-        private const val TABLE_PROFILE = "Profile"
-        private const val TABLE_TRACKED_APPS = "TrackedApps"
-
-        // Profile Table Columns
-        private const val COL_ID = "id"
-        private const val COL_NAME = "name"
-
-        // Tracked Apps Table Columns
-        private const val COL_PACKAGE_NAME = "package_name"
-        private const val COL_TIME_LIMIT = "time_limit_minutes"
+        private const val DB_VERSION = 1
+        private const val DB_PATH_SUFFIX = "/databases/"
     }
 
-    override fun onCreate(db: SQLiteDatabase?) {
-        val createProfileTable = "CREATE TABLE $TABLE_PROFILE (" +
-                "$COL_ID INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "$COL_NAME TEXT)"
-        db?.execSQL(createProfileTable)
+    private var db: SQLiteDatabase? = null
 
-        val createTrackedAppsTable = "CREATE TABLE $TABLE_TRACKED_APPS (" +
-                "$COL_PACKAGE_NAME TEXT PRIMARY KEY," +
-                "$COL_TIME_LIMIT INTEGER NOT NULL DEFAULT 30)"
-        db?.execSQL(createTrackedAppsTable)
+    private fun dbPath(): String {
+        return context.applicationInfo.dataDir + DB_PATH_SUFFIX + DB_NAME
     }
 
-    override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        db?.execSQL("DROP TABLE IF EXISTS $TABLE_PROFILE")
-        db?.execSQL("DROP TABLE IF EXISTS $TABLE_TRACKED_APPS")
-        onCreate(db)
+    init {
+        createDatabaseIfNotExists()
     }
 
-    // --- Profile Functions ---
-
-    fun saveUserProfile(name: String) {
-        val db = this.writableDatabase
-        db.delete(TABLE_PROFILE, null, null) // Clear old profile data
-        val values = ContentValues().apply {
-            put(COL_NAME, name)
+    private fun createDatabaseIfNotExists() {
+        val dbFile = context.getDatabasePath(DB_NAME)
+        if (!dbFile.exists()) {
+            this.readableDatabase // Creates empty DB
+            copyDatabaseFromAssets()
         }
-        db.insert(TABLE_PROFILE, null, values)
+    }
+
+    private fun copyDatabaseFromAssets() {
+        try {
+            val inputStream: InputStream = context.assets.open(DB_NAME)
+            val outFileName = dbPath()
+            val outputStream: OutputStream = FileOutputStream(outFileName)
+
+            val buffer = ByteArray(1024)
+            var length: Int
+            while (true) {
+                length = inputStream.read(buffer)
+                if (length <= 0) break
+                outputStream.write(buffer, 0, length)
+            }
+
+            outputStream.flush()
+            outputStream.close()
+            inputStream.close()
+        } catch (e: IOException) {
+            throw RuntimeException("Error copying database from assets", e)
+        }
+    }
+
+    override fun onCreate(db: SQLiteDatabase) {
+        // Do nothing. Schema already exists in prebuilt DB.
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Handle DB upgrades if needed
+    }
+
+    fun open(): SQLiteDatabase {
+        db = SQLiteDatabase.openDatabase(dbPath(), null, SQLiteDatabase.OPEN_READWRITE)
+        return db as SQLiteDatabase
     }
 
     fun getUserProfileName(): String? {
-        val db = this.readableDatabase
-        val cursor = db.rawQuery("SELECT $COL_NAME FROM $TABLE_PROFILE LIMIT 1", null)
-        var name: String? = null
-        try {
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(COL_NAME)
-                if (nameIndex != -1) {
-                    name = cursor.getString(nameIndex)
-                }
-            }
-        } finally {
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT user_name FROM profile LIMIT 1", null)
+        return if (cursor.moveToFirst()) {
+            cursor.getString(0)
+        } else {
+            null
+        }.also {
             cursor.close()
+            db.close()
         }
-        return name
     }
 
-    // --- Tracked App Functions ---
-
-    fun addTrackedApp(packageName: String) {
-        val db = this.writableDatabase
-        val values = ContentValues().apply {
-            put(COL_PACKAGE_NAME, packageName)
+    fun getTrackedApps(): String? {
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT package_name FROM apps WHERE is_tracked = 1", null)
+        return if (cursor.moveToFirst()) {
+            cursor.getString(0)
+        } else {
+            null
+        }.also {
+            cursor.close()
+            db.close()
         }
-        db.insertWithOnConflict(TABLE_TRACKED_APPS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
-    fun removeTrackedApp(packageName: String) {
-        val db = this.writableDatabase
-        db.delete(TABLE_TRACKED_APPS, "$COL_PACKAGE_NAME = ?", arrayOf(packageName))
-    }
-
-    fun updateTimeLimit(packageName: String, timeLimitMinutes: Int) {
-        val db = this.writableDatabase
-        val values = ContentValues().apply {
-            put(COL_TIME_LIMIT, timeLimitMinutes)
-        }
-        db.update(TABLE_TRACKED_APPS, values, "$COL_PACKAGE_NAME = ?", arrayOf(packageName))
-    }
-
-    fun getTrackedApps(): Map<String, Int> {
+    fun getAllTrackedAppLimits(): Map<String, Int> {
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT package_name, time_limit_min FROM apps WHERE is_tracked = 1", null)
         val trackedApps = mutableMapOf<String, Int>()
-        val db = this.readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM $TABLE_TRACKED_APPS", null)
-        try {
-            if (cursor.moveToFirst()) {
-                val packageIndex = cursor.getColumnIndex(COL_PACKAGE_NAME)
-                val timeLimitIndex = cursor.getColumnIndex(COL_TIME_LIMIT)
-                if (packageIndex != -1 && timeLimitIndex != -1) {
-                    do {
-                        val packageName = cursor.getString(packageIndex)
-                        val timeLimit = cursor.getInt(timeLimitIndex)
-                        trackedApps[packageName] = timeLimit
-                    } while (cursor.moveToNext())
-                }
-            }
-        } finally {
-            cursor.close()
+
+        if (cursor.moveToFirst()) {
+            do {
+                val packageName = cursor.getString(cursor.getColumnIndexOrThrow("package_name"))
+                val timeLimit = cursor.getInt(cursor.getColumnIndexOrThrow("time_limit_min"))
+                trackedApps[packageName] = timeLimit
+            } while (cursor.moveToNext())
         }
+
+        cursor.close()
+        db.close()
+
         return trackedApps
+    }
+
+    fun updateTimeLimit(packageName: String, newLimit: Int) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("time_limit_min", newLimit)
+        }
+        db.update(
+            "apps",                   // Table name
+            values,                   // New values
+            "package_name = ?",       // WHERE clause
+            arrayOf(packageName)      // WHERE args
+        )
+        db.close()
+    }
+
+    @Synchronized
+    override fun close() {
+        db?.close()
+        super.close()
     }
 }

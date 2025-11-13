@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
             val signInLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult()
             ) { result ->
-                if (result.resultCode == Activity.RESULT_OK) {
+                if (result.resultCode == RESULT_OK) {
                     val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                     if (task.isSuccessful) {
                         val account = task.result
@@ -87,17 +87,6 @@ class MainActivity : ComponentActivity() {
                 if (isSignedIn) {
                     // This effect runs once when the app starts with a user already signed in.
                     val context = LocalContext.current
-                    LaunchedEffect(Unit) {
-                        auth.currentUser?.displayName?.let { name ->
-                            if (name.isNotBlank()) {
-                                withContext(Dispatchers.IO) {
-                                    val dbHelper = DatabaseHelper(context)
-                                    dbHelper.saveUserProfile(name)
-                                    Log.d("AUTH", "Saved profile for already signed-in user: $name")
-                                }
-                            }
-                        }
-                    }
 
                     val onSignOut = {
                         AuthManager.signOut(this, googleSignInClient)
