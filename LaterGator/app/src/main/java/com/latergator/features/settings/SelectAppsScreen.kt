@@ -47,7 +47,17 @@ fun SelectAppsScreen(navController: NavHostController) {
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
-            trackedApps = dbHelper.getTrackedApps()
+            val db = dbHelper.readableDatabase
+            val cursor = db.rawQuery("SELECT package_name FROM apps", null)
+            val packages = mutableMapOf<String, Int>()
+            if (cursor.moveToFirst()) {
+                do {
+                    val pkg = cursor.getString(0)
+                    packages[pkg] = 1
+                } while (cursor.moveToNext())
+            }
+            cursor.close()
+            trackedApps = packages
             installedApps = getInstalledApps(context)
             isLoading = false
         }
@@ -71,11 +81,12 @@ fun SelectAppsScreen(navController: NavHostController) {
                     AppRow(appInfo = app, isChecked = app.packageName in trackedApps.keys) { isChecked ->
                         scope.launch(Dispatchers.IO) {
                             if (isChecked) {
-                                dbHelper.addTrackedApp(app.packageName)
+                                val db = dbHelper.writableDatabase
+                                db.execSQL("INSERT OR IGNORE INTO apps (package_name, created_at_ms) VALUES (?, ?)", arrayOf(app.packageName, System.currentTimeMillis()))
                             } else {
-                                dbHelper.removeTrackedApp(app.packageName)
+                                val db = dbHelper.writableDatabase
+                                db.execSQL("DELETE FROM apps WHERE package_name = ?", arrayOf(app.packageName))
                             }
-                            trackedApps = dbHelper.getTrackedApps()
                         }
                     }
                 }

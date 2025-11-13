@@ -18,13 +18,6 @@ object AuthManager {
         auth.signInWithCredential(credential)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    // On successful sign-in, save the user's name to the database.
-                    account.displayName?.let { name ->
-                        if (name.isNotBlank()) {
-                            val dbHelper = DatabaseHelper(context)
-                            dbHelper.saveUserProfile(name)
-                        }
-                    }
                     onResult(true, null)
                 } else {
                     onResult(false, task.exception?.message)
@@ -35,10 +28,6 @@ object AuthManager {
     fun signOut(activity: Activity, googleSignInClient: GoogleSignInClient) {
         googleSignInClient.signOut().addOnCompleteListener {
             auth.signOut()
-
-            // Clear the user profile from the database on sign out
-            val dbHelper = DatabaseHelper(activity)
-            dbHelper.saveUserProfile("")
 
             val intent = Intent(activity, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

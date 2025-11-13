@@ -47,7 +47,7 @@ fun SettingsScreen(navController: NavHostController) {
     var trackedApps by remember { mutableStateOf<List<TrackedApp>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // --- Lifecycle Handlers ---
+    /*// --- Lifecycle Handlers ---
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -66,7 +66,7 @@ fun SettingsScreen(navController: NavHostController) {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    }*/
 
     // --- Permission Handling ---
     val settingsLauncher = rememberLauncherForActivityResult(
