@@ -2,7 +2,6 @@ package com.latergator.data
 
 import android.content.Context
 import android.content.ContentValues
-import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import java.io.FileOutputStream
@@ -19,20 +18,18 @@ class DatabaseHelper(private val context: Context) :
         private const val DB_PATH_SUFFIX = "/databases/"
     }
 
-    private var db: SQLiteDatabase? = null
+    init {
+        createDatabaseIfNotExists()
+    }
 
     private fun dbPath(): String {
         return context.applicationInfo.dataDir + DB_PATH_SUFFIX + DB_NAME
     }
 
-    init {
-        createDatabaseIfNotExists()
-    }
-
     private fun createDatabaseIfNotExists() {
         val dbFile = context.getDatabasePath(DB_NAME)
         if (!dbFile.exists()) {
-            this.readableDatabase // Creates empty DB
+            this.readableDatabase.close() // Creates empty DB, then close it to copy
             copyDatabaseFromAssets()
         }
     }
@@ -67,9 +64,40 @@ class DatabaseHelper(private val context: Context) :
         // Handle DB upgrades if needed
     }
 
-    fun open(): SQLiteDatabase {
-        db = SQLiteDatabase.openDatabase(dbPath(), null, SQLiteDatabase.OPEN_READWRITE)
-        return db as SQLiteDatabase
+    fun hasProfile(): Boolean {
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT id FROM profile LIMIT 1", null)
+        return cursor.moveToFirst().also {
+            cursor.close()
+        }
+    }
+
+    fun createUserProfile(userName: String, tz: String) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val now = System.currentTimeMillis()
+            val values = ContentValues().apply {
+                put("user_name", userName)
+                put("tz", tz)
+                put("created_at_ms", now)
+                put("updated_at_ms", now)
+                put("privacy_level", "local_only") // Set default for NOT NULL column
+            }
+            db.insert("profile", null, values)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun updateUserProfileName(newName: String) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("user_name", newName)
+            put("updated_at_ms", System.currentTimeMillis())
+        }
+        db.update("profile", values, null, null)
     }
 
     fun getUserProfileName(): String? {
@@ -81,59 +109,86 @@ class DatabaseHelper(private val context: Context) :
             null
         }.also {
             cursor.close()
-            db.close()
         }
     }
 
-    fun getTrackedApps(): String? {
+    fun getTrackedApps(): Map<String, Int?> {
         val db = readableDatabase
-        val cursor = db.rawQuery("SELECT package_name FROM apps WHERE is_tracked = 1", null)
-        return if (cursor.moveToFirst()) {
-            cursor.getString(0)
-        } else {
-            null
-        }.also {
+        val trackedApps = mutableMapOf<String, Int?>()
+        val query = """
+            SELECT a.package_name, t.daily_limit_minutes_current
+            FROM apps a
+            LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app'
+            WHERE a.is_tracked = 1
+        """.trimIndent()
+
+        val cursor = db.rawQuery(query, null)
+        try {
+            if (cursor.moveToFirst()) {
+                do {
+                    val packageNameIndex = cursor.getColumnIndex("package_name")
+                    val timeLimitIndex = cursor.getColumnIndex("daily_limit_minutes_current")
+                    if (packageNameIndex != -1) {
+                        val packageName = cursor.getString(packageNameIndex)
+                        val timeLimit = if (timeLimitIndex != -1 && !cursor.isNull(timeLimitIndex)) {
+                            cursor.getInt(timeLimitIndex)
+                        } else {
+                            null // Correctly use null for "No Limit"
+                        }
+                        trackedApps[packageName] = timeLimit
+                    }
+                } while (cursor.moveToNext())
+            }
+        } finally {
             cursor.close()
-            db.close()
         }
-    }
-
-    fun getAllTrackedAppLimits(): Map<String, Int> {
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT package_name, time_limit_min FROM apps WHERE is_tracked = 1", null)
-        val trackedApps = mutableMapOf<String, Int>()
-
-        if (cursor.moveToFirst()) {
-            do {
-                val packageName = cursor.getString(cursor.getColumnIndexOrThrow("package_name"))
-                val timeLimit = cursor.getInt(cursor.getColumnIndexOrThrow("time_limit_min"))
-                trackedApps[packageName] = timeLimit
-            } while (cursor.moveToNext())
-        }
-
-        cursor.close()
-        db.close()
-
         return trackedApps
     }
 
-    fun updateTimeLimit(packageName: String, newLimit: Int) {
+    fun updateTimeLimit(packageName: String, newLimit: Int?) {
         val db = writableDatabase
-        val values = ContentValues().apply {
-            put("time_limit_min", newLimit)
-        }
-        db.update(
-            "apps",                   // Table name
-            values,                   // New values
-            "package_name = ?",       // WHERE clause
-            arrayOf(packageName)      // WHERE args
-        )
-        db.close()
-    }
+        db.beginTransaction()
+        try {
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
+            var appId: Long = -1
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
+                }
+            }
+            cursor.close()
 
-    @Synchronized
-    override fun close() {
-        db?.close()
-        super.close()
+            if (appId == -1L) return
+
+            val now = System.currentTimeMillis()
+            val values = ContentValues().apply {
+                if (newLimit == null) {
+                    putNull("daily_limit_minutes_current")
+                } else {
+                    put("daily_limit_minutes_current", newLimit)
+                }
+                put("updated_at_ms", now)
+            }
+
+            val updatedRows = db.update(
+                "time_limit_prefs",
+                values,
+                "app_id = ? AND scope = ?",
+                arrayOf(appId.toString(), "per_app")
+            )
+
+            if (updatedRows == 0 && newLimit != null) {
+                values.put("scope", "per_app")
+                values.put("app_id", appId)
+                values.put("active", 1)
+                values.put("created_at_ms", now)
+                values.put("daily_limit_minutes_original", newLimit)
+                db.insertWithOnConflict("time_limit_prefs", null, values, SQLiteDatabase.CONFLICT_IGNORE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
     }
 }

@@ -1,8 +1,10 @@
 package com.latergator.features.settings
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,25 +42,15 @@ fun SelectAppsScreen(navController: NavHostController) {
     val dbHelper = remember { DatabaseHelper(context) }
     val scope = rememberCoroutineScope()
 
-    var trackedApps by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var trackedApps by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var installedApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
-            val db = dbHelper.readableDatabase
-            val cursor = db.rawQuery("SELECT package_name FROM apps", null)
-            val packages = mutableMapOf<String, Int>()
-            if (cursor.moveToFirst()) {
-                do {
-                    val pkg = cursor.getString(0)
-                    packages[pkg] = 1
-                } while (cursor.moveToNext())
-            }
-            cursor.close()
-            trackedApps = packages
             installedApps = getInstalledApps(context)
+            trackedApps = dbHelper.getTrackedApps()
             isLoading = false
         }
     }
@@ -79,13 +71,15 @@ fun SelectAppsScreen(navController: NavHostController) {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(installedApps, key = { it.packageName }) { app ->
                     AppRow(appInfo = app, isChecked = app.packageName in trackedApps.keys) { isChecked ->
-                        scope.launch(Dispatchers.IO) {
-                            if (isChecked) {
-                                val db = dbHelper.writableDatabase
-                                db.execSQL("INSERT OR IGNORE INTO apps (package_name, created_at_ms) VALUES (?, ?)", arrayOf(app.packageName, System.currentTimeMillis()))
+                        scope.launch {
+                            trackedApps = if (isChecked) {
+                                trackedApps + (app.packageName to null) // Default to No Limit
                             } else {
-                                val db = dbHelper.writableDatabase
-                                db.execSQL("DELETE FROM apps WHERE package_name = ?", arrayOf(app.packageName))
+                                trackedApps - app.packageName
+                            }
+
+                            withContext(Dispatchers.IO) {
+                                updateTrackingStatus(dbHelper, app.packageName, isChecked)
                             }
                         }
                     }
@@ -98,6 +92,44 @@ fun SelectAppsScreen(navController: NavHostController) {
         Button(onClick = { navController.popBackStack() }) {
             Text(stringResource(R.string.done))
         }
+    }
+}
+
+private fun updateTrackingStatus(dbHelper: DatabaseHelper, packageName: String, isTracked: Boolean) {
+    val db = dbHelper.writableDatabase
+    try {
+        db.beginTransaction()
+
+        // Update the is_tracked status in the 'apps' table
+        val appValues = ContentValues().apply {
+            put("is_tracked", if (isTracked) 1 else 0)
+            put("updated_at_ms", System.currentTimeMillis())
+        }
+        db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
+
+        // Find the app_id for the given package name
+        val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
+        var appId: Long = -1
+        if (cursor.moveToFirst()) {
+            val appIdIndex = cursor.getColumnIndex("id")
+            if (appIdIndex != -1) {
+                appId = cursor.getLong(appIdIndex)
+            }
+        }
+        cursor.close()
+
+        // If we found an app_id, update the 'active' status in 'time_limit_prefs'
+        if (appId != -1L) {
+            val prefValues = ContentValues().apply {
+                put("active", if (isTracked) 1 else 0)
+                put("updated_at_ms", System.currentTimeMillis())
+            }
+            db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
+        }
+        
+        db.setTransactionSuccessful()
+    } finally {
+        db.endTransaction()
     }
 }
 
@@ -126,11 +158,37 @@ private fun getInstalledApps(context: Context): List<AppInfo> {
         addCategory(Intent.CATEGORY_LAUNCHER)
     }
     val allApps = pm.queryIntentActivities(intent, 0)
-    return allApps.mapNotNull {
-        val appName = it.loadLabel(pm).toString()
-        val packageName = it.activityInfo.packageName
+    val dbHelper = DatabaseHelper(context)
+    val db = dbHelper.writableDatabase
+
+    try {
+        db.beginTransaction()
+        for (resolveInfo in allApps) {
+            val appName = resolveInfo.loadLabel(pm).toString()
+            val packageName = resolveInfo.activityInfo.packageName
+
+            val values = ContentValues().apply {
+                put("package_name", packageName)
+                put("label", appName)
+                put("is_tracked", 0) // Default to not selected
+                put("created_at_ms", System.currentTimeMillis())
+                put("updated_at_ms", System.currentTimeMillis())
+            }
+            db.insertWithOnConflict("apps", null, values, SQLiteDatabase.CONFLICT_IGNORE)
+        }
+        db.setTransactionSuccessful()
+    } finally {
+        db.endTransaction()
+    }
+
+    return allApps.mapNotNull { resolveInfo ->
+        val packageName = resolveInfo.activityInfo.packageName
         if (packageName != context.packageName) {
-            AppInfo(appName, packageName, it.loadIcon(pm))
+            AppInfo(
+                name = resolveInfo.loadLabel(pm).toString(),
+                packageName = packageName,
+                icon = resolveInfo.loadIcon(pm)
+            )
         } else {
             null
         }

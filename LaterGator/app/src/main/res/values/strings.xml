@@ -29,6 +29,11 @@
     <!-- Select Apps Screen -->
     <string name="select_apps_screen_title">Select Apps to Track</string>
 
+    <!-- Profile strings -->
+    <string name="create_your_profile">Create Your Profile</string>
+    <string name="enter_a_username">Enter a username</string>
+    <string name="save_and_continue">Save and Continue</string>
+
     <!-- Auth Errors -->
     <string name="auth_error_firebase">Firebase Sign-In failed</string>
     <string name="auth_error_google_account_null">Google Sign-In was successful but the account was null.</string>

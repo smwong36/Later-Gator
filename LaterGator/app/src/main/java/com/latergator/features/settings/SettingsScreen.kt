@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Process
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -14,12 +15,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,20 +37,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class TrackedApp(val appInfo: AppInfo, val timeLimitMinutes: Int)
+data class TrackedApp(val appInfo: AppInfo, val timeLimitMinutes: Int?)
 
 @Composable
 fun SettingsScreen(navController: NavHostController) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     // --- State Management ---
     var hasPermission by remember { mutableStateOf(hasUsageStatsPermission(context)) }
     var trackedApps by remember { mutableStateOf<List<TrackedApp>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var userName by remember { mutableStateOf("") }
 
-    /*// --- Lifecycle Handlers ---
+    // --- Lifecycle & Data Loading ---
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            userName = dbHelper.getUserProfileName() ?: ""
+        }
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -66,7 +77,7 @@ fun SettingsScreen(navController: NavHostController) {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }*/
+    }
 
     // --- Permission Handling ---
     val settingsLauncher = rememberLauncherForActivityResult(
@@ -85,7 +96,32 @@ fun SettingsScreen(navController: NavHostController) {
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
+
+        // --- Profile Settings ---
+        OutlinedTextField(
+            value = userName,
+            onValueChange = { userName = it },
+            label = { Text("Username") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                scope.launch(Dispatchers.IO) {
+                    dbHelper.updateUserProfileName(userName)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Username updated!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                focusManager.clearFocus()
+            },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Update")
+        }
+
+        Spacer(Modifier.height(24.dp))
 
         // --- Usage Permission Section ---
         Row(
@@ -134,15 +170,15 @@ fun SettingsScreen(navController: NavHostController) {
                 items(trackedApps, key = { it.appInfo.packageName }) { app ->
                     TrackedAppRow(
                         trackedApp = app,
-                        onTimeLimitChange = {
+                        onTimeLimitChange = { newLimit ->
                             scope.launch(Dispatchers.IO) {
-                                dbHelper.updateTimeLimit(app.appInfo.packageName, it)
+                                dbHelper.updateTimeLimit(app.appInfo.packageName, newLimit)
                             }
                         },
-                        onTimeLimitChangeFinished = {
+                        onTimeLimitChangeFinished = { newLimit ->
                             val newTrackedApps = trackedApps.map {
                                 if (it.appInfo.packageName == app.appInfo.packageName) {
-                                    it.copy(timeLimitMinutes = it.timeLimitMinutes)
+                                    it.copy(timeLimitMinutes = newLimit)
                                 } else {
                                     it
                                 }
@@ -168,10 +204,11 @@ fun SettingsScreen(navController: NavHostController) {
 @Composable
 private fun TrackedAppRow(
     trackedApp: TrackedApp,
-    onTimeLimitChange: (Int) -> Unit,
-    onTimeLimitChangeFinished: () -> Unit
+    onTimeLimitChange: (Int?) -> Unit,
+    onTimeLimitChangeFinished: (Int?) -> Unit
 ) {
-    var sliderPosition by remember { mutableStateOf(trackedApp.timeLimitMinutes.toFloat()) }
+    // We use -1f to represent "No limit" for the slider's internal state
+    var sliderPosition by remember { mutableStateOf(trackedApp.timeLimitMinutes?.toFloat() ?: -1f) }
 
     Row(
         modifier = Modifier
@@ -190,14 +227,20 @@ private fun TrackedAppRow(
             Slider(
                 value = sliderPosition,
                 onValueChange = { sliderPosition = it },
-                valueRange = 0f..180f,
+                valueRange = -1f..180f, // -1 is our special value for "No limit"
                 onValueChangeFinished = {
-                    onTimeLimitChange(sliderPosition.toInt())
-                    onTimeLimitChangeFinished()
+                    val newLimit = if (sliderPosition < 0) null else sliderPosition.toInt()
+                    onTimeLimitChange(newLimit)
+                    onTimeLimitChangeFinished(newLimit)
                 }
             )
         }
-        Text("${sliderPosition.toInt()} min")
+        val limitText = when (val limit = if (sliderPosition < 0) null else sliderPosition.toInt()) {
+            null -> "No limit"
+            0 -> "0 min"
+            else -> "$limit min"
+        }
+        Text(limitText)
     }
 }
 
@@ -211,18 +254,18 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
     return mode == AppOpsManager.MODE_ALLOWED
 }
 
-private fun getTrackedAppDetails(context: Context, trackedPackages: Map<String, Int>): List<TrackedApp> {
+private fun getTrackedAppDetails(context: Context, trackedPackages: Map<String, Int?>): List<TrackedApp> {
     val pm = context.packageManager
-    return trackedPackages.mapNotNull {
+    return trackedPackages.mapNotNull { (packageName, timeLimit) ->
         try {
-            val appInfo = pm.getApplicationInfo(it.key, 0)
+            val appInfo = pm.getApplicationInfo(packageName, 0)
             TrackedApp(
                 appInfo = AppInfo(
                     name = appInfo.loadLabel(pm).toString(),
-                    packageName = it.key,
+                    packageName = packageName,
                     icon = appInfo.loadIcon(pm)
                 ),
-                timeLimitMinutes = it.value
+                timeLimitMinutes = timeLimit
             )
         } catch (e: PackageManager.NameNotFoundException) {
             null

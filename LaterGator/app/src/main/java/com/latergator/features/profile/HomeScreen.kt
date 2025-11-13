@@ -10,31 +10,47 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import com.latergator.R
 import com.latergator.data.DatabaseHelper
 import com.latergator.ui.components.NavigationButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(navController: NavHostController, onSignOut: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var userName by remember { mutableStateOf<String?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val dbHelper = DatabaseHelper(context)
-            userName = dbHelper.getUserProfileName()
+    // Observe lifecycle events to refresh the username when the screen is resumed
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        val dbHelper = DatabaseHelper(context)
+                        userName = dbHelper.getUserProfileName()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
     val welcomeMessage = remember(userName) {
-        val firstName = userName?.split(" ")?.firstOrNull()
-        if (!firstName.isNullOrBlank()) {
-            "Welcome to Later Gator, $firstName"
+        if (userName != null) {
+            "Welcome to Later Gator, $userName"
         } else {
             "Welcome to Later Gator"
         }
