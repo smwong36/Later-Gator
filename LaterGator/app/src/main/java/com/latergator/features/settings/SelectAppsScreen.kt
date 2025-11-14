@@ -49,7 +49,7 @@ fun SelectAppsScreen(navController: NavHostController) {
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
-            installedApps = getInstalledApps(context)
+            installedApps = getInstalledApps(context, dbHelper)
             trackedApps = dbHelper.getTrackedApps()
             isLoading = false
         }
@@ -71,15 +71,12 @@ fun SelectAppsScreen(navController: NavHostController) {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(installedApps, key = { it.packageName }) { app ->
                     AppRow(appInfo = app, isChecked = app.packageName in trackedApps.keys) { isChecked ->
-                        scope.launch {
-                            trackedApps = if (isChecked) {
-                                trackedApps + (app.packageName to null) // Default to No Limit
-                            } else {
-                                trackedApps - app.packageName
-                            }
-
-                            withContext(Dispatchers.IO) {
-                                updateTrackingStatus(dbHelper, app.packageName, isChecked)
+                        scope.launch(Dispatchers.IO) {
+                            dbHelper.setAppTrackingAndActiveStatus(app.packageName, isChecked)
+                            // Re-fetch the tracked apps to update the UI state accurately
+                            val updatedTrackedApps = dbHelper.getTrackedApps()
+                            withContext(Dispatchers.Main) {
+                                trackedApps = updatedTrackedApps
                             }
                         }
                     }
@@ -92,44 +89,6 @@ fun SelectAppsScreen(navController: NavHostController) {
         Button(onClick = { navController.popBackStack() }) {
             Text(stringResource(R.string.done))
         }
-    }
-}
-
-private fun updateTrackingStatus(dbHelper: DatabaseHelper, packageName: String, isTracked: Boolean) {
-    val db = dbHelper.writableDatabase
-    try {
-        db.beginTransaction()
-
-        // Update the is_tracked status in the 'apps' table
-        val appValues = ContentValues().apply {
-            put("is_tracked", if (isTracked) 1 else 0)
-            put("updated_at_ms", System.currentTimeMillis())
-        }
-        db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
-
-        // Find the app_id for the given package name
-        val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
-        var appId: Long = -1
-        if (cursor.moveToFirst()) {
-            val appIdIndex = cursor.getColumnIndex("id")
-            if (appIdIndex != -1) {
-                appId = cursor.getLong(appIdIndex)
-            }
-        }
-        cursor.close()
-
-        // If we found an app_id, update the 'active' status in 'time_limit_prefs'
-        if (appId != -1L) {
-            val prefValues = ContentValues().apply {
-                put("active", if (isTracked) 1 else 0)
-                put("updated_at_ms", System.currentTimeMillis())
-            }
-            db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
-        }
-        
-        db.setTransactionSuccessful()
-    } finally {
-        db.endTransaction()
     }
 }
 
@@ -152,17 +111,16 @@ private fun AppRow(appInfo: AppInfo, isChecked: Boolean, onCheckedChange: (Boole
     }
 }
 
-private fun getInstalledApps(context: Context): List<AppInfo> {
+private fun getInstalledApps(context: Context, dbHelper: DatabaseHelper): List<AppInfo> {
     val pm = context.packageManager
     val intent = Intent(Intent.ACTION_MAIN, null).apply {
         addCategory(Intent.CATEGORY_LAUNCHER)
     }
     val allApps = pm.queryIntentActivities(intent, 0)
-    val dbHelper = DatabaseHelper(context)
     val db = dbHelper.writableDatabase
 
+    db.beginTransaction()
     try {
-        db.beginTransaction()
         for (resolveInfo in allApps) {
             val appName = resolveInfo.loadLabel(pm).toString()
             val packageName = resolveInfo.activityInfo.packageName
