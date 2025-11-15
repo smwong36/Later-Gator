@@ -73,6 +73,9 @@ class DatabaseHelper(private val context: Context) :
     }
 
     fun createUserProfile(userName: String, tz: String) {
+        if (userName.isBlank()) {
+            return // Do not allow blank names
+        }
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -91,13 +94,17 @@ class DatabaseHelper(private val context: Context) :
         }
     }
 
-    fun updateUserProfileName(newName: String) {
+    fun updateUserProfileName(newName: String): Boolean {
+        if (newName.isBlank()) {
+            return false// Do not allow blank names
+        }
         val db = writableDatabase
         val values = ContentValues().apply {
             put("user_name", newName)
             put("updated_at_ms", System.currentTimeMillis())
         }
-        db.update("profile", values, null, null)
+        val updatedRows = db.update("profile", values, null, null)
+        return updatedRows > 0
     }
 
     fun getUserProfileName(): String? {
@@ -118,7 +125,7 @@ class DatabaseHelper(private val context: Context) :
         val query = """
             SELECT a.package_name, t.daily_limit_minutes_current
             FROM apps a
-            LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app'
+            LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app' AND t.active = 1
             WHERE a.is_tracked = 1
         """.trimIndent()
 
@@ -143,6 +150,43 @@ class DatabaseHelper(private val context: Context) :
             cursor.close()
         }
         return trackedApps
+    }
+
+    fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Update the is_tracked status in the 'apps' table
+            val appValues = ContentValues().apply {
+                put("is_tracked", if (isTracked) 1 else 0)
+                put("updated_at_ms", System.currentTimeMillis())
+            }
+            db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
+
+            // Find the app_id for the given package name
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
+            var appId: Long = -1
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
+                }
+            }
+            cursor.close()
+
+            // If we found an app_id, update the 'active' status in 'time_limit_prefs'
+            if (appId != -1L) {
+                val prefValues = ContentValues().apply {
+                    put("active", if (isTracked) 1 else 0)
+                    put("updated_at_ms", System.currentTimeMillis())
+                }
+                db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
+            }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
     }
 
     fun updateTimeLimit(packageName: String, newLimit: Int?) {
