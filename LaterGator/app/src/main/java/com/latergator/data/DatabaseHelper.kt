@@ -94,16 +94,17 @@ class DatabaseHelper(private val context: Context) :
         }
     }
 
-    fun updateUserProfileName(newName: String) {
+    fun updateUserProfileName(newName: String): Boolean {
         if (newName.isBlank()) {
-            return // Do not allow blank names
+            return false// Do not allow blank names
         }
         val db = writableDatabase
         val values = ContentValues().apply {
             put("user_name", newName)
             put("updated_at_ms", System.currentTimeMillis())
         }
-        db.update("profile", values, null, null)
+        val updatedRows = db.update("profile", values, null, null)
+        return updatedRows > 0
     }
 
     fun getUserProfileName(): String? {

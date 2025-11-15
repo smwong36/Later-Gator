@@ -108,11 +108,16 @@ fun SettingsScreen(navController: NavHostController) {
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = {
-                scope.launch(Dispatchers.IO) {
-                    dbHelper.updateUserProfileName(userName)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Username updated!", Toast.LENGTH_SHORT).show()
+                scope.launch {
+                    val wasSuccessful = withContext(Dispatchers.IO) {
+                        dbHelper.updateUserProfileName(userName)
                     }
+                    val message = if (wasSuccessful) {
+                        "Username updated!"
+                    } else {
+                        "Username cannot be blank."
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 }
                 focusManager.clearFocus()
             },
@@ -170,9 +175,9 @@ fun SettingsScreen(navController: NavHostController) {
                 items(trackedApps, key = { it.appInfo.packageName }) { app ->
                     TrackedAppRow(
                         trackedApp = app,
-                        onTimeLimitChange = { newLimit ->
+                        onTimeLimitChange = {
                             scope.launch(Dispatchers.IO) {
-                                dbHelper.updateTimeLimit(app.appInfo.packageName, newLimit)
+                                dbHelper.updateTimeLimit(app.appInfo.packageName, it)
                             }
                         },
                         onTimeLimitChangeFinished = { newLimit ->
