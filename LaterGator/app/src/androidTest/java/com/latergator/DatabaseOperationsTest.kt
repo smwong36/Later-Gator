@@ -79,6 +79,67 @@ class DatabaseOperationsTest {
     }
 
     @Test
+    fun testIgnoreBlankName() {
+        // 1. Attempt to create a user with a blank name
+        dbHelper.createUserProfile("   ", "UTC")
+        assertFalse("Profile should not be created with a blank name", dbHelper.hasProfile())
+
+        // 2. Attempt to create a user with an empty name
+        dbHelper.createUserProfile("", "UTC")
+        assertFalse("Profile should not be created with an empty name", dbHelper.hasProfile())
+
+        // 3. Create a user with an initial, valid name
+        val initialName = "Original Name"
+        dbHelper.createUserProfile(initialName, "UTC")
+        assertTrue("Profile should be created with a valid name", dbHelper.hasProfile())
+
+        // 4. Attempt to update the name to a blank string
+        dbHelper.updateUserProfileName("   ")
+
+        // 5. Verify that the name has NOT changed
+        assertEquals("Username should not be updated to a blank string", initialName, dbHelper.getUserProfileName())
+
+        // 6. Attempt to update the name to an empty string
+        dbHelper.updateUserProfileName("")
+
+        // 7. Verify that the name has STILL not changed
+        assertEquals("Username should not be updated to an empty string", initialName, dbHelper.getUserProfileName())
+    }
+
+    @Test
+    fun testOperationsOnNonExistentApp() {
+        val nonExistentPackage = "com.this.app.does.not.exist"
+
+        // These operations should not throw an exception.
+        try {
+            dbHelper.setAppTrackingAndActiveStatus(nonExistentPackage, true)
+            dbHelper.updateTimeLimit(nonExistentPackage, 60)
+        } catch (e: Exception) {
+            fail("Operations on a non-existent app should not throw an exception. Threw: $e")
+        }
+
+        // Verify that the non-existent app was not added to the tracked list
+        val trackedApps = dbHelper.getTrackedApps()
+        assertFalse("Non-existent app should not be in the tracked list", trackedApps.containsKey(nonExistentPackage))
+    }
+
+    @Test
+    fun testUpdatingExistingTimeLimit() {
+        // 1. Track the app and set an initial limit
+        dbHelper.setAppTrackingAndActiveStatus(testPackageName, true)
+        dbHelper.updateTimeLimit(testPackageName, 30)
+        var trackedApps = dbHelper.getTrackedApps()
+        assertEquals("Time limit should be initially set to 30", 30, trackedApps[testPackageName])
+
+        // 2. Update the limit to a new value
+        dbHelper.updateTimeLimit(testPackageName, 60)
+
+        // 3. Verify the limit has been updated
+        trackedApps = dbHelper.getTrackedApps()
+        assertEquals("Time limit should be updated to 60", 60, trackedApps[testPackageName])
+    }
+
+    @Test
     fun testClearingTimeLimit() {
         // 1. Track the app and set an initial time limit
         dbHelper.setAppTrackingAndActiveStatus(testPackageName, true)

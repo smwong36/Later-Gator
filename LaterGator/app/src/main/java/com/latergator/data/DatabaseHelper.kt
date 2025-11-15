@@ -73,6 +73,9 @@ class DatabaseHelper(private val context: Context) :
     }
 
     fun createUserProfile(userName: String, tz: String) {
+        if (userName.isBlank()) {
+            return // Do not allow blank names
+        }
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -92,6 +95,9 @@ class DatabaseHelper(private val context: Context) :
     }
 
     fun updateUserProfileName(newName: String) {
+        if (newName.isBlank()) {
+            return // Do not allow blank names
+        }
         val db = writableDatabase
         val values = ContentValues().apply {
             put("user_name", newName)
