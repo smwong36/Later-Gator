@@ -27,6 +27,7 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 firebase-auth = { module = "com.google.firebase:firebase-auth-ktx", version = "22.3.0" }
 google-auth = { module = "com.google.android.gms:play-services-auth", version = "20.7.0" }
 navigation-compose = { module = "androidx.navigation:navigation-compose", version = "2.7.5" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 
 [plugins]
