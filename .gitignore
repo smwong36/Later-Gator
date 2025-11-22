@@ -98,8 +98,8 @@ jest-cache/
 *.gz
 *.tgz
 *.sqlite
-*.db
 .env
 .env.local
 package-lock.json
 package.json
+google-services.json
