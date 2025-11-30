@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,6 +73,7 @@ class InterruptionActivity : ComponentActivity() {
 
     private fun closeApp() {
         val intent = Intent(ACTION_CLOSE_APP)
+        intent.setPackage(packageName) // Explicitly target this app
         sendBroadcast(intent)
         finish()
     }
@@ -84,7 +86,18 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val appIdState = remember { mutableStateOf<Int?>(null) }
-    val snoozesRemaining = remember { mutableStateOf(0) }
+    val snoozesRemaining = remember { mutableIntStateOf(0) }
+
+    // Get App Label
+    val packageManager = context.packageManager
+    val appLabel = remember(packageName) {
+        try {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        } catch (_: Exception) {
+            packageName
+        }
+    }
 
     // Safely load data from the database on a background thread
     LaunchedEffect(packageName) {
@@ -92,7 +105,7 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
             val id = dbHelper.getAppId(packageName)
             if (id != -1) {
                 appIdState.value = id
-                snoozesRemaining.value = dbHelper.getRemainingSnoozes("per_app", id)
+                snoozesRemaining.intValue = dbHelper.getRemainingSnoozes("per_app", id)
             }
         }
     }
@@ -120,7 +133,7 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
             )
 
             Text(
-                text = packageName,
+                text = appLabel,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -132,7 +145,7 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
                 onClick = onClose,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Got it")
+                Text("Close App")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -143,18 +156,18 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
                         scope.launch(Dispatchers.IO) {
                             dbHelper.logSnoozeUsed(id, "per_app")
                         }
-                        snoozesRemaining.value--
+                        snoozesRemaining.intValue--
                         onClose()
                     }
                 },
-                enabled = snoozesRemaining.value > 0 && appId != null,
+                enabled = snoozesRemaining.intValue > 0 && appId != null,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (snoozesRemaining.value > 0) MaterialTheme.colorScheme.primary
+                    containerColor = if (snoozesRemaining.intValue > 0) MaterialTheme.colorScheme.primary
                     else Color.LightGray
                 )
             ) {
-                Text("Snooze (${snoozesRemaining.value} left)")
+                Text("Snooze (${snoozesRemaining.intValue} left)")
             }
         }
     }

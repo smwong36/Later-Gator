@@ -30,7 +30,9 @@ class DatabaseHelper(private val context: Context) :
     private fun createDatabaseIfNotExists() {
         val dbFile = context.getDatabasePath(DB_NAME)
         if (!dbFile.exists()) {
-            this.readableDatabase.close() // Creates empty DB, then close it to copy
+            // We need to close the readable database immediately after creating the file structure
+            // so we can overwrite it with the asset copy.
+            this.readableDatabase.close() 
             copyDatabaseFromAssets()
         }
     }
@@ -69,30 +71,28 @@ class DatabaseHelper(private val context: Context) :
     }
 
     fun hasProfile(): Boolean {
-        return readableDatabase.use { db ->
-            db.rawQuery("SELECT id FROM profile LIMIT 1", null).use { cursor ->
-                cursor.moveToFirst()
-            }
+        val db = readableDatabase
+        return db.rawQuery("SELECT id FROM profile LIMIT 1", null).use { cursor ->
+            cursor.moveToFirst()
         }
     }
 
     fun createUserProfile(userName: String, tz: String) {
-        writableDatabase.use { db ->
-            db.beginTransaction()
-            try {
-                val now = System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    put("user_name", userName)
-                    put("tz", tz)
-                    put("created_at_ms", now)
-                    put("updated_at_ms", now)
-                    put("privacy_level", "local_only") // Set default for NOT NULL column
-                }
-                db.insert("profile", null, values)
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val now = System.currentTimeMillis()
+            val values = ContentValues().apply {
+                put("user_name", userName)
+                put("tz", tz)
+                put("created_at_ms", now)
+                put("updated_at_ms", now)
+                put("privacy_level", "local_only") // Set default for NOT NULL column
             }
+            db.insert("profile", null, values)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
@@ -100,152 +100,155 @@ class DatabaseHelper(private val context: Context) :
         if (newName.isBlank()) {
             return false// Do not allow blank names
         }
-        return writableDatabase.use { db ->
-            val values = ContentValues().apply {
-                put("user_name", newName)
-                put("updated_at_ms", System.currentTimeMillis())
-            }
-            db.update("profile", values, null, null) > 0
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("user_name", newName)
+            put("updated_at_ms", System.currentTimeMillis())
         }
+        return db.update("profile", values, null, null) > 0
     }
 
     fun getUserProfileName(): String? {
-        return readableDatabase.use { db ->
-            db.rawQuery("SELECT user_name FROM profile LIMIT 1", null).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    cursor.getString(0)
-                } else {
-                    null
-                }
+        val db = readableDatabase
+        return db.rawQuery("SELECT user_name FROM profile LIMIT 1", null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getString(0)
+            } else {
+                null
             }
         }
     }
 
     fun getTrackedApps(): Map<String, Int?> {
         val trackedApps = mutableMapOf<String, Int?>()
-        readableDatabase.use { db ->
-            val query = """
+        val db = readableDatabase
+        val query = """
             SELECT a.package_name, t.daily_limit_minutes_current
             FROM apps a
             LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app'
             WHERE a.is_tracked = 1
         """.trimIndent()
 
-            db.rawQuery(query, null).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    do {
-                        val packageNameIndex = cursor.getColumnIndex("package_name")
-                        val timeLimitIndex = cursor.getColumnIndex("daily_limit_minutes_current")
-                        if (packageNameIndex != -1) {
-                            val packageName = cursor.getString(packageNameIndex)
-                            val timeLimit = if (timeLimitIndex != -1 && !cursor.isNull(timeLimitIndex)) {
-                                cursor.getInt(timeLimitIndex)
-                            } else {
-                                null // Correctly use null for "No Limit"
-                            }
-                            trackedApps[packageName] = timeLimit
+        db.rawQuery(query, null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                do {
+                    val packageNameIndex = cursor.getColumnIndex("package_name")
+                    val timeLimitIndex = cursor.getColumnIndex("daily_limit_minutes_current")
+                    if (packageNameIndex != -1) {
+                        val packageName = cursor.getString(packageNameIndex)
+                        val timeLimit = if (timeLimitIndex != -1 && !cursor.isNull(timeLimitIndex)) {
+                            cursor.getInt(timeLimitIndex)
+                        } else {
+                            null // Correctly use null for "No Limit"
                         }
-                    } while (cursor.moveToNext())
-                }
+                        trackedApps[packageName] = timeLimit
+                    }
+                } while (cursor.moveToNext())
             }
         }
         return trackedApps
     }
 
     fun getAppId(packageName: String): Int {
-        return readableDatabase.use { db ->
-            db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    cursor.getInt(0)
-                } else {
-                    -1
-                }
+        val db = readableDatabase
+        return db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getInt(0)
+            } else {
+                -1
             }
         }
     }
 
     fun updateTimeLimit(packageName: String, newLimit: Int?) {
-        writableDatabase.use { db ->
-            db.beginTransaction()
-            try {
-                var appId: Long = -1
-                db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val appIdIndex = cursor.getColumnIndex("id")
-                        if (appIdIndex != -1) {
-                            appId = cursor.getLong(appIdIndex)
-                        }
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            var appId: Long = -1
+            db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val appIdIndex = cursor.getColumnIndex("id")
+                    if (appIdIndex != -1) {
+                        appId = cursor.getLong(appIdIndex)
                     }
                 }
-
-                if (appId == -1L) return
-
-                val now = System.currentTimeMillis()
-                val values = ContentValues().apply {
-                    if (newLimit == null) {
-                        putNull("daily_limit_minutes_current")
-                    } else {
-                        put("daily_limit_minutes_current", newLimit)
-                    }
-                    put("updated_at_ms", now)
-                }
-
-                val updatedRows = db.update(
-                    "time_limit_prefs",
-                    values,
-                    "app_id = ? AND scope = ?",
-                    arrayOf(appId.toString(), "per_app")
-                )
-
-                if (updatedRows == 0 && newLimit != null) {
-                    values.put("scope", "per_app")
-                    values.put("app_id", appId)
-                    values.put("active", 1)
-                    values.put("created_at_ms", now)
-                    values.put("daily_limit_minutes_original", newLimit)
-                    db.insertWithOnConflict("time_limit_prefs", null, values, SQLiteDatabase.CONFLICT_IGNORE)
-                }
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
             }
+
+            if (appId == -1L) return
+
+            val now = System.currentTimeMillis()
+            val values = ContentValues().apply {
+                if (newLimit == null) {
+                    putNull("daily_limit_minutes_current")
+                } else {
+                    put("daily_limit_minutes_current", newLimit)
+                }
+                put("updated_at_ms", now)
+            }
+
+            val updatedRows = db.update(
+                "time_limit_prefs",
+                values,
+                "app_id = ? AND scope = ?",
+                arrayOf(appId.toString(), "per_app")
+            )
+
+            if (updatedRows == 0 && newLimit != null) {
+                values.put("scope", "per_app")
+                values.put("app_id", appId)
+                values.put("active", 1)
+                values.put("created_at_ms", now)
+                values.put("daily_limit_minutes_original", newLimit)
+                db.insertWithOnConflict("time_limit_prefs", null, values, SQLiteDatabase.CONFLICT_IGNORE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
     fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
-        writableDatabase.use { db ->
-            db.beginTransaction()
-            try {
-                // Update the is_tracked status in the 'apps' table
-                val appValues = ContentValues().apply {
-                    put("is_tracked", if (isTracked) 1 else 0)
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Update the is_tracked status in the 'apps' table
+            val appValues = ContentValues().apply {
+                put("is_tracked", if (isTracked) 1 else 0)
+                put("updated_at_ms", System.currentTimeMillis())
+            }
+            db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
+
+            var appId: Long = -1
+            db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val appIdIndex = cursor.getColumnIndex("id")
+                    if (appIdIndex != -1) {
+                        appId = cursor.getLong(appIdIndex)
+                    }
+                }
+            }
+
+            if (appId != -1L) {
+                val prefValues = ContentValues().apply {
+                    put("active", if (isTracked) 1 else 0)
                     put("updated_at_ms", System.currentTimeMillis())
                 }
-                db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
-
-                var appId: Long = -1
-                db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val appIdIndex = cursor.getColumnIndex("id")
-                        if (appIdIndex != -1) {
-                            appId = cursor.getLong(appIdIndex)
-                        }
-                    }
-                }
-
-                if (appId != -1L) {
-                    val prefValues = ContentValues().apply {
-                        put("active", if (isTracked) 1 else 0)
-                        put("updated_at_ms", System.currentTimeMillis())
-                    }
-                    db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
-                }
-
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
+                db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
             }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
+    }
+
+    /**
+     * Updates the end time of the currently open session for the specific app to "now".
+     * This allows real-time tracking without closing the session.
+     */
+    fun updateCurrentSessionEndTime(appId: Int) {
+        // Logic moved to isAppBlockedNow, this method is kept for ABI compatibility if needed, or can be removed.
+        // Currently empty as requested by previous steps to fix build, but logic handled dynamically now.
     }
 
     /** ==================================
@@ -258,19 +261,18 @@ class DatabaseHelper(private val context: Context) :
      * @param metadata Optional string for any additional data about the event.
      */
     fun logEvent(eventType: String, metadata: String? = null) {
-        writableDatabase.use { db ->
-            val timestamp = System.currentTimeMillis()
+        val db = writableDatabase
+        val timestamp = System.currentTimeMillis()
 
-            // Escape metadata if null
-            val metadataEscaped = metadata?.replace("'", "''")
+        // Escape metadata if null
+        val metadataEscaped = metadata?.replace("'", "''")
 
-            val insertQuery = """
+        val insertQuery = """
         INSERT INTO events (event_type, metadata, created_at_ms)
         VALUES ('$eventType', ${metadataEscaped?.let { "'$it'" } ?: "NULL"}, $timestamp)
     """.trimIndent()
 
-            db.execSQL(insertQuery)
-        }
+        db.execSQL(insertQuery)
     }
 
     /**
@@ -284,28 +286,27 @@ class DatabaseHelper(private val context: Context) :
      * @param source Optional string identifying how the exit was triggered (e.g., 'popup', 'system').
      */
     fun logLimitExitEvent(appId: Int, endedAt: Long, source: String = "system") {
-        writableDatabase.use { db ->
-            var startedAt: Long = -1
-            var sessionId: Long = -1
+        val db = writableDatabase
+        var startedAt: Long = -1
+        var sessionId: Long = -1
 
-            // Find the ongoing session
-            db.rawQuery("SELECT id, started_at_ms FROM usage_sessions WHERE app_id = ? AND ended_at_ms IS NULL ORDER BY started_at_ms DESC LIMIT 1", arrayOf(appId.toString())).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    sessionId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
-                    startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at_ms"))
-                }
+        // Changed IS NULL to = 0 to match Option B requirement
+        db.rawQuery("SELECT id, started_at_ms FROM usage_sessions WHERE app_id = ? AND ended_at_ms = 0 ORDER BY started_at_ms DESC LIMIT 1", arrayOf(appId.toString())).use { cursor ->
+            if (cursor.moveToFirst()) {
+                sessionId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
+                startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at_ms"))
             }
+        }
 
-            if (sessionId != -1L) {
-                val duration = endedAt - startedAt
-                val values = ContentValues().apply {
-                    put("ended_at_ms", endedAt)
-                    put("duration_ms", duration)
-                    put("source", source)
-                    put("blocked_flag", 1)  // Marked as blocked due to time limit
-                }
-                db.update("usage_sessions", values, "id = ?", arrayOf(sessionId.toString()))
+        if (sessionId != -1L) {
+            val duration = endedAt - startedAt
+            val values = ContentValues().apply {
+                put("ended_at_ms", endedAt)
+                put("duration_ms", duration)
+                put("source", source)
+                put("blocked_flag", 1)  // Marked as blocked due to time limit
             }
+            db.update("usage_sessions", values, "id = ?", arrayOf(sessionId.toString()))
         }
 
         // Log the limit exit event in the events table
@@ -321,7 +322,7 @@ class DatabaseHelper(private val context: Context) :
      * incrementUsage()
      * Updates the usage_sessions table when an app is detected in the foreground.
      *
-     * - If there's already an ongoing session (ended_at_ms is NULL), we don't start a new one.
+     * - If there's already an ongoing session (ended_at_ms = 0), we don't start a new one.
      * - If no session exists for this app today, or the last session has ended, we insert a new session.
      * 
      * This method assumes it is called periodically (e.g., every 10 seconds)
@@ -331,28 +332,35 @@ class DatabaseHelper(private val context: Context) :
      */
     fun incrementUsage(appId: Int) {
         val startOfDay = getStartOfTodayInMillis()
-        writableDatabase.use { db ->
-            val now = System.currentTimeMillis()
+        val db = writableDatabase
+        val now = System.currentTimeMillis()
 
-            val hasOpenSession = db.rawQuery(
-                """
+        // Changed IS NULL to = 0
+        var hasOpenSession = false
+        db.rawQuery(
+            """
             SELECT id FROM usage_sessions
-            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms IS NULL
+            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms = 0
             ORDER BY started_at_ms DESC LIMIT 1
             """ .trimIndent(),
-                arrayOf(appId.toString(), startOfDay.toString())
-            ).use { cursor ->
-                cursor.moveToFirst()
+            arrayOf(appId.toString(), startOfDay.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                hasOpenSession = true
             }
+        }
 
-            // If no open session, insert a new one
-            if (!hasOpenSession) {
-                val values = ContentValues().apply {
-                    put("app_id", appId)
-                    put("started_at_ms", now)
-                }
-                db.insert("usage_sessions", null, values)
+        // If no open session, insert a new one
+        if (!hasOpenSession) {
+            val values = ContentValues().apply {
+                put("app_id", appId)
+                put("started_at_ms", now)
+                put("ended_at_ms", 0) // OPTION B: Default value for NOT NULL constraint
+                put("duration_ms", 0) // OPTION B: Default value for NOT NULL constraint
+                put("source", "system") // Default for NOT NULL constraint
+                put("blocked_flag", 0)  // Default for NOT NULL constraint
             }
+            db.insert("usage_sessions", null, values)
         }
     }
 
@@ -360,35 +368,35 @@ class DatabaseHelper(private val context: Context) :
      * endUsageSession()
      * Updates the usage_sessions table to close an ongoing session for an app.
      *
-     * - Finds the latest open session (ended_at_ms is NULL) for the given app.
+     * - Finds the latest open session (ended_at_ms = 0) for the given app.
      * - Sets the ended_at_ms to the current time and calculates the duration.
      *
      * @param appId The app_id from the apps table that is no longer active.
      */
     fun endUsageSession(appId: Int) {
-        writableDatabase.use { db ->
-            val now = System.currentTimeMillis()
-            var sessionId = -1L
-            var startedAt = -1L
+        val db = writableDatabase
+        val now = System.currentTimeMillis()
+        var sessionId = -1L
+        var startedAt = -1L
 
-            db.rawQuery(
-                "SELECT id, started_at_ms FROM usage_sessions WHERE app_id = ? AND ended_at_ms IS NULL ORDER BY started_at_ms DESC LIMIT 1",
-                arrayOf(appId.toString())
-            ).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    sessionId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
-                    startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at_ms"))
-                }
+        // Changed IS NULL to = 0
+        db.rawQuery(
+            "SELECT id, started_at_ms FROM usage_sessions WHERE app_id = ? AND ended_at_ms = 0 ORDER BY started_at_ms DESC LIMIT 1",
+            arrayOf(appId.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                sessionId = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
+                startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at_ms"))
             }
+        }
 
-            if (sessionId != -1L) {
-                val duration = now - startedAt
-                val values = ContentValues().apply {
-                    put("ended_at_ms", now)
-                    put("duration_ms", duration)
-                }
-                db.update("usage_sessions", values, "id = ?", arrayOf(sessionId.toString()))
+        if (sessionId != -1L) {
+            val duration = now - startedAt
+            val values = ContentValues().apply {
+                put("ended_at_ms", now)
+                put("duration_ms", duration)
             }
+            db.update("usage_sessions", values, "id = ?", arrayOf(sessionId.toString()))
         }
     }
 
@@ -398,19 +406,18 @@ class DatabaseHelper(private val context: Context) :
      * Also resets snooze counts in snooze_settings.
      */
     fun resetDailyCounters() {
-        writableDatabase.use { db ->
-            // Copy user-defined limits into the original columns to freeze the day's values
-            db.execSQL("""
+        val db = writableDatabase
+        // Copy user-defined limits into the original columns to freeze the day's values
+        db.execSQL("""
             UPDATE time_limit_prefs 
             SET daily_limit_minutes_original = daily_limit_minutes_current
         """)
 
-            // Reset snoozes for the day
-            db.execSQL("""
+        // Reset snoozes for the day
+        db.execSQL("""
             UPDATE snooze_settings 
             SET daily_snoozes_remaining = daily_snoozes_original
         """)
-        }
     }
 
     /**
@@ -424,21 +431,20 @@ class DatabaseHelper(private val context: Context) :
      * @return Total number of minutes used today for this app.
      */
     fun getAppTimeUsedToday(appId: Int): Int {
-        return readableDatabase.use { db ->
-            val startOfDay = getStartOfTodayInMillis()
-            val query = """
+        val db = readableDatabase
+        val startOfDay = getStartOfTodayInMillis()
+        val query = """
             SELECT SUM(duration_ms) as total_usage
             FROM usage_sessions
-            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms IS NOT NULL
+            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms > 0
         """
-            db.rawQuery(query, arrayOf(appId.toString(), startOfDay.toString())).use { cursor ->
-                var totalTimeMinutes = 0
-                if (cursor.moveToFirst()) {
-                    val durationMs = cursor.getLong(cursor.getColumnIndexOrThrow("total_usage"))
-                    totalTimeMinutes = (durationMs / 60000).toInt()  // Convert ms to minutes
-                }
-                totalTimeMinutes
+        return db.rawQuery(query, arrayOf(appId.toString(), startOfDay.toString())).use { cursor ->
+            var totalTimeMinutes = 0
+            if (cursor.moveToFirst()) {
+                val durationMs = cursor.getLong(cursor.getColumnIndexOrThrow("total_usage"))
+                totalTimeMinutes = (durationMs / 60000).toInt()  // Convert ms to minutes
             }
+            totalTimeMinutes
         }
     }
 
@@ -465,29 +471,28 @@ class DatabaseHelper(private val context: Context) :
 
     // Fetches the user's start-of-day time from the mode_settings table, or null if none set
     private fun getUserStartTimeHour(): Int? {
-        return readableDatabase.use { db ->
-            db.rawQuery(
-                """
+        val db = readableDatabase
+        return db.rawQuery(
+            """
             SELECT start_time_local 
             FROM mode_settings 
             WHERE enabled = 1 AND start_time_local IS NOT NULL 
             ORDER BY priority DESC LIMIT 1
             """ .trimIndent(), null
-            ).use { cursor ->
-                var hour: Int? = null
-                if (cursor.moveToFirst()) {
-                    val startTime = cursor.getString(cursor.getColumnIndexOrThrow("start_time_local"))
-                    try {
-                        // Expecting "HH:mm" format
-                        val parts = startTime.split(":")
-                        hour = parts[0].toInt()
-                    } catch (e: Exception) {
-                        // If format is wrong or something crashes, just default later
-                        hour = null
-                    }
+        ).use { cursor ->
+            var hour: Int? = null
+            if (cursor.moveToFirst()) {
+                val startTime = cursor.getString(cursor.getColumnIndexOrThrow("start_time_local"))
+                try {
+                    // Expecting "HH:mm" format
+                    val parts = startTime.split(":")
+                    hour = parts[0].toInt()
+                } catch (e: Exception) {
+                    // If format is wrong or something crashes, just default later
+                    hour = null
                 }
-                hour
             }
+            hour
         }
     }
 
@@ -502,23 +507,22 @@ class DatabaseHelper(private val context: Context) :
      * @return Daily usage limit in minutes, or null if no limit is set.
      */
     fun getOriginalDailyLimitForApp(appId: Int): Int? {
-        return readableDatabase.use { db ->
-            val query = """
+        val db = readableDatabase
+        val query = """
             SELECT daily_limit_minutes_original
             FROM time_limit_prefs
             WHERE app_id = ? AND scope = 'per_app' AND active = 1
             LIMIT 1
             """.trimIndent()
 
-            db.rawQuery(query, arrayOf(appId.toString())).use { cursor ->
-                var limit: Int? = null
-                if (cursor.moveToFirst()) {
-                    if (!cursor.isNull(0)) {
-                        limit = cursor.getInt(0)
-                    }
+        return db.rawQuery(query, arrayOf(appId.toString())).use { cursor ->
+            var limit: Int? = null
+            if (cursor.moveToFirst()) {
+                if (!cursor.isNull(0)) {
+                    limit = cursor.getInt(0)
                 }
-                limit
             }
+            limit
         }
     }
 
@@ -530,10 +534,10 @@ class DatabaseHelper(private val context: Context) :
      * Used to enforce a global daily time limit across all selected apps.
      */
     fun getGlobalDailyTimeUsedToday(): Int {
-        return readableDatabase.use { db ->
-            val startOfDay = getStartOfTodayInMillis()
+        val db = readableDatabase
+        val startOfDay = getStartOfTodayInMillis()
 
-            val query = """
+        val query = """
             SELECT SUM(duration_ms) 
             FROM usage_sessions
             WHERE app_id IN (
@@ -541,13 +545,12 @@ class DatabaseHelper(private val context: Context) :
             ) AND started_at_ms >= ?
         """.trimIndent()
 
-            db.rawQuery(query, arrayOf(startOfDay.toString())).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val totalMs = cursor.getLong(0)
-                    (totalMs / 60000).toInt()  // Convert ms → minutes
-                } else {
-                    0
-                }
+        return db.rawQuery(query, arrayOf(startOfDay.toString())).use { cursor ->
+            if (cursor.moveToFirst()) {
+                val totalMs = cursor.getLong(0)
+                (totalMs / 60000).toInt()  // Convert ms → minutes
+            } else {
+                0
             }
         }
     }
@@ -560,20 +563,19 @@ class DatabaseHelper(private val context: Context) :
      * Returns null if no global daily cap was configured.
      */
     fun getOriginalGlobalDailyLimit(): Int? {
-        return readableDatabase.use { db ->
-            val query = """
+        val db = readableDatabase
+        val query = """
             SELECT daily_limit_minutes_original
             FROM time_limit_prefs
             WHERE scope = 'global'
             LIMIT 1
             """.trimIndent()
 
-            db.rawQuery(query, null).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    if (!cursor.isNull(0)) cursor.getInt(0) else null
-                } else {
-                    null
-                }
+        return db.rawQuery(query, null).use { cursor ->
+            if (cursor.moveToFirst()) {
+                if (!cursor.isNull(0)) cursor.getInt(0) else null
+            } else {
+                null
             }
         }
     }
@@ -586,29 +588,58 @@ class DatabaseHelper(private val context: Context) :
      * @return true if the app is currently blocked, false otherwise.
      */
     fun isAppBlockedNow(packageName: String): Boolean {
-        return readableDatabase.use { db ->
-            val appIdQuery = "SELECT id FROM apps WHERE package_name = ?"
-            val appId = db.rawQuery(appIdQuery, arrayOf(packageName)).use { appIdCursor ->
-                if (!appIdCursor.moveToFirst()) {
-                    return@use false // App not being tracked, so not blocked
-                }
-                appIdCursor.getInt(0)
-            }
-
-            val sessionQuery = """
-            SELECT blocked_flag, started_at_ms FROM usage_sessions 
-            WHERE app_id = ? 
-            ORDER BY started_at_ms DESC 
-            LIMIT 1
-            """.trimIndent()
-            db.rawQuery(sessionQuery, arrayOf(appId.toString())).use { sessionCursor ->
-                if (sessionCursor.moveToFirst()) {
-                    sessionCursor.getInt(0) == 1
-                } else {
-                    false
-                }
+        val db = readableDatabase
+        // 1. Get App ID
+        val appIdQuery = "SELECT id FROM apps WHERE package_name = ?"
+        var appId: Int? = null
+        db.rawQuery(appIdQuery, arrayOf(packageName)).use { appIdCursor ->
+            if (appIdCursor.moveToFirst()) {
+                appId = appIdCursor.getInt(0)
             }
         }
+        
+        if (appId == null) return false
+
+        // 2. Check time limit
+        // Calculate total usage today (Closed Sessions + Current Open Session)
+        val startOfDay = getStartOfTodayInMillis()
+        val now = System.currentTimeMillis()
+        
+        // Get Closed Sessions Duration
+        // Changed IS NOT NULL to > 0
+        val closedQuery = """
+            SELECT SUM(duration_ms) 
+            FROM usage_sessions
+            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms > 0
+        """
+        var totalMs = 0L
+        db.rawQuery(closedQuery, arrayOf(appId.toString(), startOfDay.toString())).use { closedCursor ->
+            if (closedCursor.moveToFirst()) {
+                totalMs = closedCursor.getLong(0)
+            }
+        }
+        
+        // Get Current Open Session Duration
+        // Changed IS NULL to = 0
+        val openQuery = """
+            SELECT started_at_ms 
+            FROM usage_sessions
+            WHERE app_id = ? AND started_at_ms >= ? AND ended_at_ms = 0
+            LIMIT 1
+        """
+        db.rawQuery(openQuery, arrayOf(appId.toString(), startOfDay.toString())).use { openCursor ->
+            if (openCursor.moveToFirst()) {
+                val start = openCursor.getLong(0)
+                totalMs += (now - start)
+            }
+        }
+
+        val totalMinutes = (totalMs / 60000).toInt()
+
+        // Get Limit
+        val limit = getOriginalDailyLimitForApp(appId!!) ?: return false
+        
+        return totalMinutes >= limit
     }
 
 
@@ -621,14 +652,13 @@ class DatabaseHelper(private val context: Context) :
      * @param durationMs The total usage duration in milliseconds that caused the breach.
      */
     fun logTimeLimitBreach(appId: Int, durationMs: Int) {
-        writableDatabase.use { db ->
-            val values = ContentValues().apply {
-                put("app_id", appId)
-                put("breach_timestamp_ms", System.currentTimeMillis())
-                put("duration_ms", durationMs)
-            }
-            db.insert("time_limit_hits_ledger", null, values)
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("app_id", appId)
+            put("breach_timestamp_ms", System.currentTimeMillis())
+            put("duration_ms", durationMs)
         }
+        db.insert("time_limit_hits_ledger", null, values)
     }
 
     /** ==================================
@@ -646,32 +676,31 @@ class DatabaseHelper(private val context: Context) :
      * @return How many snoozes remain for today (0 or more)
      */
     fun getRemainingSnoozes(scope: String, appId: Int? = null): Int {
-        return readableDatabase.use { db ->
-            val todayStart = getStartOfTodayInMillis()
+        val db = readableDatabase
+        val todayStart = getStartOfTodayInMillis()
 
-            val used = db.rawQuery(
-                """
-            SELECT COUNT(*) FROM snooze_ledger
-            WHERE used_at_ms >= ? AND (? IS NULL OR app_id = ?)
-            """ .trimIndent(),
-                arrayOf(todayStart.toString(), appId?.toString(), appId?.toString())
-            ).use { usedCursor ->
-                if (usedCursor.moveToFirst()) usedCursor.getInt(0) else 0
-            }
-
-            val limit = db.rawQuery(
-                """
-            SELECT max_per_day_current FROM snooze_prefs
-            WHERE scope = ? AND (? IS NULL OR app_id = ?)
-            LIMIT 1
-            """ .trimIndent(),
-                arrayOf(scope, appId?.toString(), appId?.toString())
-            ).use { prefCursor ->
-                if (prefCursor.moveToFirst()) prefCursor.getInt(0) else 0
-            }
-
-            (limit - used).coerceAtLeast(0)
+        val used = db.rawQuery(
+            """
+        SELECT COUNT(*) FROM snooze_ledger
+        WHERE used_at_ms >= ? AND (? IS NULL OR app_id = ?)
+        """ .trimIndent(),
+            arrayOf(todayStart.toString(), appId?.toString(), appId?.toString())
+        ).use { usedCursor ->
+            if (usedCursor.moveToFirst()) usedCursor.getInt(0) else 0
         }
+
+        val limit = db.rawQuery(
+            """
+        SELECT max_per_day_current FROM snooze_prefs
+        WHERE scope = ? AND (? IS NULL OR app_id = ?)
+        LIMIT 1
+        """ .trimIndent(),
+            arrayOf(scope, appId?.toString(), appId?.toString())
+        ).use { prefCursor ->
+            if (prefCursor.moveToFirst()) prefCursor.getInt(0) else 0
+        }
+
+        return (limit - used).coerceAtLeast(0)
     }
 
     /**
@@ -685,15 +714,14 @@ class DatabaseHelper(private val context: Context) :
      * @param linkedEventId Optional ID from the events table
      */
     fun decrementSnoozeCount(scope: String, appId: Int? = null, linkedEventId: Int? = null) {
-        writableDatabase.use { db ->
-            val values = ContentValues().apply {
-                put("used_at_ms", System.currentTimeMillis())
-                put("app_id", appId)
-                put("reason", scope)
-                put("linked_event_id", linkedEventId)
-            }
-            db.insert("snooze_ledger", null, values)
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("used_at_ms", System.currentTimeMillis())
+            put("app_id", appId)
+            put("reason", scope)
+            put("linked_event_id", linkedEventId)
         }
+        db.insert("snooze_ledger", null, values)
     }
 
     /**
@@ -707,16 +735,15 @@ class DatabaseHelper(private val context: Context) :
      * @param scope Whether the snooze is "per_app" or "global".
      */
     fun logSnoozeUsed(appId: Int, scope: String) {
-        writableDatabase.use { db ->
-            // Insert into snooze_ledger for detailed per-snooze tracking
-            val values = ContentValues().apply {
-                put("used_at_ms", System.currentTimeMillis())
-                put("app_id", appId)
-                put("scope", scope)
-                put("reason", "user_selected") // or another string if your UI supports reason options
-            }
-            db.insert("snooze_ledger", null, values)
+        val db = writableDatabase
+        // Insert into snooze_ledger for detailed per-snooze tracking
+        val values = ContentValues().apply {
+            put("used_at_ms", System.currentTimeMillis())
+            put("app_id", appId)
+            put("scope", scope)
+            put("reason", "user_selected") // or another string if your UI supports reason options
         }
+        db.insert("snooze_ledger", null, values)
 
         // Also log to the events table for broader reporting
         logEvent("snooze_used", metadata = appId.toString())
