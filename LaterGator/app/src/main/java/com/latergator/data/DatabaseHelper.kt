@@ -10,6 +10,21 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.Calendar
 
+// Holds all configuration for a tracked app
+data class AppConfig(
+    val packageName: String,
+    val timeLimit: Int?, // Daily time limit in minutes
+    val dailySnoozeLimit: Int, // Max snoozes per day
+    val weeklySnoozeLimit: Int // Max snoozes per week
+)
+
+data class AppUsageStatus(
+    val appId: Int,
+    val isBlocked: Boolean,
+    val usedMinutes: Int,
+    val limitMinutes: Int
+)
+
 class DatabaseHelper(private val context: Context) :
     SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
 
@@ -119,34 +134,67 @@ class DatabaseHelper(private val context: Context) :
         }
     }
 
+    // Deprecated: Use getTrackedAppsConfig instead for more details
     fun getTrackedApps(): Map<String, Int?> {
-        val trackedApps = mutableMapOf<String, Int?>()
+        return getTrackedAppsConfig().associate { it.packageName to it.timeLimit }
+    }
+
+    fun getTrackedAppsConfig(): List<AppConfig> {
         val db = readableDatabase
+        val appConfigs = mutableListOf<AppConfig>()
+        
+        // Join apps with both preference tables
+        // We assume scope = 'per_app' for both settings
         val query = """
-            SELECT a.package_name, t.daily_limit_minutes_current
+            SELECT 
+                a.package_name, 
+                t.daily_limit_minutes_current,
+                s.max_per_day_current,
+                s.max_per_week_current
             FROM apps a
-            LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app'
+            LEFT JOIN time_limit_prefs t ON a.id = t.app_id AND t.scope = 'per_app' AND t.active = 1
+            LEFT JOIN snooze_prefs s ON a.id = s.app_id AND s.scope = 'per_app'
             WHERE a.is_tracked = 1
         """.trimIndent()
 
-        db.rawQuery(query, null).use { cursor ->
+        val cursor = db.rawQuery(query, null)
+        try {
             if (cursor.moveToFirst()) {
                 do {
                     val packageNameIndex = cursor.getColumnIndex("package_name")
                     val timeLimitIndex = cursor.getColumnIndex("daily_limit_minutes_current")
+                    val dailySnoozeIndex = cursor.getColumnIndex("max_per_day_current")
+                    val weeklySnoozeIndex = cursor.getColumnIndex("max_per_week_current")
+
                     if (packageNameIndex != -1) {
                         val packageName = cursor.getString(packageNameIndex)
+                        
                         val timeLimit = if (timeLimitIndex != -1 && !cursor.isNull(timeLimitIndex)) {
                             cursor.getInt(timeLimitIndex)
                         } else {
-                            null // Correctly use null for "No Limit"
+                            null
                         }
-                        trackedApps[packageName] = timeLimit
+                        
+                        val dailySnooze = if (dailySnoozeIndex != -1 && !cursor.isNull(dailySnoozeIndex)) {
+                            cursor.getInt(dailySnoozeIndex)
+                        } else {
+                            0 // Default to 0
+                        }
+
+                        val weeklySnooze = if (weeklySnoozeIndex != -1 && !cursor.isNull(weeklySnoozeIndex)) {
+                            cursor.getInt(weeklySnoozeIndex)
+                        } else {
+                            0 // Default to 0
+                        }
+                        
+                        appConfigs.add(AppConfig(packageName, timeLimit, dailySnooze, weeklySnooze))
                     }
                 } while (cursor.moveToNext())
             }
+        } finally {
+            cursor.close()
         }
-        return trackedApps
+        return appConfigs
     }
 
     fun getAppId(packageName: String): Int {
@@ -164,15 +212,15 @@ class DatabaseHelper(private val context: Context) :
         val db = writableDatabase
         db.beginTransaction()
         try {
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
             var appId: Long = -1
-            db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val appIdIndex = cursor.getColumnIndex("id")
-                    if (appIdIndex != -1) {
-                        appId = cursor.getLong(appIdIndex)
-                    }
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
                 }
             }
+            cursor.close()
 
             if (appId == -1L) return
 
@@ -180,8 +228,10 @@ class DatabaseHelper(private val context: Context) :
             val values = ContentValues().apply {
                 if (newLimit == null) {
                     putNull("daily_limit_minutes_current")
+                    putNull("daily_limit_minutes_original")
                 } else {
                     put("daily_limit_minutes_current", newLimit)
+                    put("daily_limit_minutes_original", newLimit)
                 }
                 put("updated_at_ms", now)
             }
@@ -198,9 +248,59 @@ class DatabaseHelper(private val context: Context) :
                 values.put("app_id", appId)
                 values.put("active", 1)
                 values.put("created_at_ms", now)
-                values.put("daily_limit_minutes_original", newLimit)
+                // daily_limit_minutes_original already set in apply block
                 db.insertWithOnConflict("time_limit_prefs", null, values, SQLiteDatabase.CONFLICT_IGNORE)
             }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun updateSnoozeLimit(packageName: String, dailyLimit: Int, weeklyLimit: Int) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
+            var appId: Long = -1
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
+                }
+            }
+            cursor.close()
+
+            if (appId == -1L) return
+
+            val now = System.currentTimeMillis()
+            val values = ContentValues().apply {
+                put("max_per_day_current", dailyLimit)
+                put("max_per_week_current", weeklyLimit)
+                put("updated_at_ms", now)
+            }
+
+            val updatedRows = db.update(
+                "snooze_prefs",
+                values,
+                "app_id = ? AND scope = ?",
+                arrayOf(appId.toString(), "per_app")
+            )
+
+            if (updatedRows == 0) {
+                // Need to insert new row. Must provide all NOT NULL columns.
+                values.put("app_id", appId)
+                values.put("scope", "per_app")
+                // Set originals to match current for a fresh insert
+                values.put("max_per_day_original", dailyLimit)
+                values.put("max_per_week_original", weeklyLimit)
+                // Removed daily_snoozes_remaining based on schema
+                // Removed duration_minutes as the column doesn't exist
+                values.put("created_at_ms", now)
+                
+                db.insertWithOnConflict("snooze_prefs", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -211,44 +311,67 @@ class DatabaseHelper(private val context: Context) :
         val db = writableDatabase
         db.beginTransaction()
         try {
+            val now = System.currentTimeMillis()
+            
             // Update the is_tracked status in the 'apps' table
             val appValues = ContentValues().apply {
                 put("is_tracked", if (isTracked) 1 else 0)
-                put("updated_at_ms", System.currentTimeMillis())
+                put("updated_at_ms", now)
             }
             db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
 
+            // Find the app_id for the given package name
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
             var appId: Long = -1
-            db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val appIdIndex = cursor.getColumnIndex("id")
-                    if (appIdIndex != -1) {
-                        appId = cursor.getLong(appIdIndex)
-                    }
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
                 }
             }
+            cursor.close()
 
             if (appId != -1L) {
+                // 1. Update time_limit_prefs
                 val prefValues = ContentValues().apply {
                     put("active", if (isTracked) 1 else 0)
-                    put("updated_at_ms", System.currentTimeMillis())
+                    put("updated_at_ms", now)
                 }
                 db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
+
+                // 2. Ensure snooze_prefs row exists if tracking is enabled
+                if (isTracked) {
+                    // Check if a snooze preference already exists
+                    val snoozeCheck = db.rawQuery(
+                        "SELECT id FROM snooze_prefs WHERE app_id = ? AND scope = 'per_app'", 
+                        arrayOf(appId.toString())
+                    )
+                    val hasSnoozePrefs = snoozeCheck.moveToFirst()
+                    snoozeCheck.close()
+
+                    if (!hasSnoozePrefs) {
+                        // Create default snooze prefs (0 daily, 0 weekly)
+                        val snoozeValues = ContentValues().apply {
+                            put("app_id", appId)
+                            put("scope", "per_app")
+                            put("max_per_day_current", 0)
+                            put("max_per_week_current", 0)
+                            put("max_per_day_original", 0)
+                            put("max_per_week_original", 0)
+                            // Removed daily_snoozes_remaining
+                            // Removed duration_minutes
+                            put("created_at_ms", now)
+                            put("updated_at_ms", now)
+                        }
+                        db.insert("snooze_prefs", null, snoozeValues)
+                    }
+                }
             }
 
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
-    }
-
-    /**
-     * Updates the end time of the currently open session for the specific app to "now".
-     * This allows real-time tracking without closing the session.
-     */
-    fun updateCurrentSessionEndTime(appId: Int) {
-        // Logic moved to isAppBlockedNow, this method is kept for ABI compatibility if needed, or can be removed.
-        // Currently empty as requested by previous steps to fix build, but logic handled dynamically now.
     }
 
     /** ==================================
@@ -259,17 +382,20 @@ class DatabaseHelper(private val context: Context) :
      * logEvent()
      * @param eventType A string describing the type of event (e.g., "snooze_used", "limit_exit").
      * @param metadata Optional string for any additional data about the event.
+     * @param appId Optional ID of the app associated with the event.
      */
-    fun logEvent(eventType: String, metadata: String? = null) {
+    fun logEvent(eventType: String, metadata: String? = null, appId: Int? = null) {
         val db = writableDatabase
         val timestamp = System.currentTimeMillis()
 
         // Escape metadata if null
         val metadataEscaped = metadata?.replace("'", "''")
+        val appIdVal = appId?.toString() ?: "NULL"
+        val metaVal = metadataEscaped?.let { "'$it'" } ?: "NULL"
 
         val insertQuery = """
-        INSERT INTO events (event_type, metadata, created_at_ms)
-        VALUES ('$eventType', ${metadataEscaped?.let { "'$it'" } ?: "NULL"}, $timestamp)
+        INSERT INTO events (kind, meta_json, at_ms, app_id)
+        VALUES ('$eventType', $metaVal, $timestamp, $appIdVal)
     """.trimIndent()
 
         db.execSQL(insertQuery)
@@ -310,7 +436,7 @@ class DatabaseHelper(private val context: Context) :
         }
 
         // Log the limit exit event in the events table
-        logEvent("limit_exit", metadata = appId.toString())
+        logEvent("limit_exit", appId = appId)
     }
 
     /** ==================================
@@ -413,11 +539,7 @@ class DatabaseHelper(private val context: Context) :
             SET daily_limit_minutes_original = daily_limit_minutes_current
         """)
 
-        // Reset snoozes for the day
-        db.execSQL("""
-            UPDATE snooze_settings 
-            SET daily_snoozes_remaining = daily_snoozes_original
-        """)
+        // Removed update to snooze_settings as daily_snoozes_remaining column doesn't exist
     }
 
     /**
@@ -581,13 +703,35 @@ class DatabaseHelper(private val context: Context) :
     }
 
     /**
-     * isAppBlockedNow()
-     * Checks if the given app is currently blocked based on the latest usage session.
-     *
-     * @param packageName The package name of the app to check.
-     * @return true if the app is currently blocked, false otherwise.
+     * Checks if there is an active snooze for the given app.
+     * Returns true if now < (latest_snooze_time + duration).
      */
-    fun isAppBlockedNow(packageName: String): Boolean {
+    private fun isSnoozeActive(appId: Int): Boolean {
+        val db = readableDatabase
+        val now = System.currentTimeMillis()
+        
+        // 1. Get latest snooze timestamp for this app
+        var lastSnoozeTime: Long = 0
+        db.rawQuery(
+            "SELECT used_at_ms FROM snooze_ledger WHERE app_id = ? AND reason = 'per_app' ORDER BY used_at_ms DESC LIMIT 1", 
+            arrayOf(appId.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                lastSnoozeTime = cursor.getLong(0)
+            }
+        }
+
+        if (lastSnoozeTime == 0L) return false
+
+        // 2. Get duration preference
+        // Since duration_minutes column does not exist, we default to 5 minutes
+        var durationMinutes = 5 
+        
+        val snoozeEnd = lastSnoozeTime + (durationMinutes * 60_000L)
+        return now < snoozeEnd
+    }
+
+    fun getAppUsageStatus(packageName: String): AppUsageStatus? {
         val db = readableDatabase
         // 1. Get App ID
         val appIdQuery = "SELECT id FROM apps WHERE package_name = ?"
@@ -598,7 +742,10 @@ class DatabaseHelper(private val context: Context) :
             }
         }
         
-        if (appId == null) return false
+        if (appId == null) return null
+
+        // Check if app is actively snoozed
+        val isSnoozed = isSnoozeActive(appId)
 
         // 2. Check time limit
         // Calculate total usage today (Closed Sessions + Current Open Session)
@@ -637,9 +784,12 @@ class DatabaseHelper(private val context: Context) :
         val totalMinutes = (totalMs / 60000).toInt()
 
         // Get Limit
-        val limit = getOriginalDailyLimitForApp(appId!!) ?: return false
+        val limit = getOriginalDailyLimitForApp(appId) ?: return AppUsageStatus(appId, false, totalMinutes, 0)
         
-        return totalMinutes >= limit
+        // Blocked if over limit AND not snoozed
+        val isBlocked = totalMinutes >= limit && !isSnoozed
+        
+        return AppUsageStatus(appId, isBlocked, totalMinutes, limit)
     }
 
 
@@ -647,16 +797,24 @@ class DatabaseHelper(private val context: Context) :
      * logTimeLimitBreach()
      * Logs a time limit breach into the time_limit_hits_ledger table.
      * Called when an app exceeds its daily time limit.
-     *
-     * @param appId The ID of the app from the apps table.
-     * @param durationMs The total usage duration in milliseconds that caused the breach.
      */
-    fun logTimeLimitBreach(appId: Int, durationMs: Int) {
+    fun logTimeLimitBreach(
+        appId: Int,
+        limitMinutes: Int,
+        usedMinutes: Int,
+        scope: String = "per_app",
+        period: String = "daily",
+        actionTaken: String = "blocked"
+    ) {
         val db = writableDatabase
         val values = ContentValues().apply {
+            put("at_ms", System.currentTimeMillis())
+            put("scope", scope)
             put("app_id", appId)
-            put("breach_timestamp_ms", System.currentTimeMillis())
-            put("duration_ms", durationMs)
+            put("period", period)
+            put("limit_minutes", limitMinutes)
+            put("used_minutes", usedMinutes)
+            put("action_taken", actionTaken)
         }
         db.insert("time_limit_hits_ledger", null, values)
     }
@@ -740,12 +898,12 @@ class DatabaseHelper(private val context: Context) :
         val values = ContentValues().apply {
             put("used_at_ms", System.currentTimeMillis())
             put("app_id", appId)
-            put("scope", scope)
-            put("reason", "user_selected") // or another string if your UI supports reason options
+            // put("scope", scope) -- REMOVED as per schema
+            put("reason", scope) // Store scope in reason to match isSnoozeActive logic
         }
         db.insert("snooze_ledger", null, values)
 
         // Also log to the events table for broader reporting
-        logEvent("snooze_used", metadata = appId.toString())
+        logEvent("snooze_used", appId = appId)
     }
 }

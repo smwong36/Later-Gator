@@ -84,9 +84,10 @@ class BlockingAccessibilityService : AccessibilityService() {
             }
 
             // 3. Check if New App is Tracked
-            val trackedApps = dbHelper.getTrackedApps()
+            val trackedApps = dbHelper.getTrackedAppsConfig()
+            val isTracked = trackedApps.any { it.packageName == packageName }
             
-            if (trackedApps.containsKey(packageName)) {
+            if (isTracked) {
                 val newAppId = dbHelper.getAppId(packageName)
                 
                 if (newAppId != -1) {
@@ -112,13 +113,20 @@ class BlockingAccessibilityService : AccessibilityService() {
      */
     private fun checkAndBlockIfLimitReached(packageName: String): Boolean {
         // 1. Refresh usage stats
-        // Note: isAppBlockedNow calculates the open session duration dynamically (now - start_time),
-        // so we don't need to manually update the database record here.
-
-        val isBlocked = dbHelper.isAppBlockedNow(packageName)
+        val status = dbHelper.getAppUsageStatus(packageName) ?: return false
         
-        if (isBlocked) {
+        if (status.isBlocked) {
             Log.i(tag, "Limit reached for $packageName. Launching interruption.")
+
+            // Log the breach event
+            dbHelper.logTimeLimitBreach(
+                appId = status.appId,
+                limitMinutes = status.limitMinutes,
+                usedMinutes = status.usedMinutes,
+                scope = "per_app",
+                period = "daily",
+                actionTaken = "blocked"
+            )
 
             val blockIntent = Intent(this, InterruptionActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

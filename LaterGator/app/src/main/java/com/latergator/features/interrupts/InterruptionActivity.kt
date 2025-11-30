@@ -2,6 +2,8 @@ package com.latergator.features.interrupts
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
@@ -66,7 +68,11 @@ class InterruptionActivity : ComponentActivity() {
 
         setContent {
             LaterGatorTheme {
-                BlockedAppScreen(packageName = blockedPackage) { closeApp() }
+                BlockedAppScreen(
+                    packageName = blockedPackage,
+                    onClose = { closeApp() },
+                    onSnooze = { finish() } // Just finish activity to stay in app
+                )
             }
         }
     }
@@ -75,12 +81,21 @@ class InterruptionActivity : ComponentActivity() {
         val intent = Intent(ACTION_CLOSE_APP)
         intent.setPackage(packageName) // Explicitly target this app
         sendBroadcast(intent)
-        finish()
+        
+        // Delay finish to allow Global Action Home to execute first.
+        // This prevents the underlying app from flashing and re-triggering the block.
+        Handler(Looper.getMainLooper()).postDelayed({
+            finish()
+        }, 500)
     }
 }
 
 @Composable
-fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
+fun BlockedAppScreen(
+    packageName: String, 
+    onClose: () -> Unit,
+    onSnooze: () -> Unit
+) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val scope = rememberCoroutineScope()
@@ -153,11 +168,15 @@ fun BlockedAppScreen(packageName: String, onClose: () -> Unit) {
             Button(
                 onClick = {
                     appId?.let { id ->
-                        scope.launch(Dispatchers.IO) {
-                            dbHelper.logSnoozeUsed(id, "per_app")
+                        scope.launch {
+                            // Run DB write on IO thread and wait for it
+                            withContext(Dispatchers.IO) {
+                                dbHelper.logSnoozeUsed(id, "per_app")
+                            }
+                            // Then update UI/Finish on Main thread
+                            snoozesRemaining.intValue--
+                            onSnooze() 
                         }
-                        snoozesRemaining.intValue--
-                        onClose()
                     }
                 },
                 enabled = snoozesRemaining.intValue > 0 && appId != null,
