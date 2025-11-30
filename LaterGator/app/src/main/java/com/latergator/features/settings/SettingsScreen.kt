@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Process
 import android.provider.Settings
 import android.text.TextUtils
@@ -62,6 +63,8 @@ fun SettingsScreen(navController: NavHostController) {
     // --- State Management ---
     var hasUsagePermission by remember { mutableStateOf(hasUsageStatsPermission(context)) }
     var hasAccessibilityPermission by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+    var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    
     var trackedApps by remember { mutableStateOf<List<TrackedApp>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var userName by remember { mutableStateOf("") }
@@ -79,6 +82,8 @@ fun SettingsScreen(navController: NavHostController) {
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasUsagePermission = hasUsageStatsPermission(context)
                 hasAccessibilityPermission = isAccessibilityServiceEnabled(context)
+                hasOverlayPermission = Settings.canDrawOverlays(context)
+                
                 scope.launch {
                     isLoading = true
                     val apps = withContext(Dispatchers.IO) {
@@ -101,6 +106,7 @@ fun SettingsScreen(navController: NavHostController) {
     ) { 
         hasUsagePermission = hasUsageStatsPermission(context)
         hasAccessibilityPermission = isAccessibilityServiceEnabled(context)
+        hasOverlayPermission = Settings.canDrawOverlays(context)
     }
 
     // --- UI ---
@@ -164,16 +170,15 @@ fun SettingsScreen(navController: NavHostController) {
         Spacer(Modifier.height(16.dp))
 
         // Grant Overlay Permission (Draw over other apps)
-        Button(
+        PermissionStatusRow(
+            label = "Display Over Other Apps",
+            hasPermission = hasOverlayPermission,
             onClick = {
                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                intent.data = android.net.Uri.parse("package:${context.packageName}")
+                intent.data = Uri.parse("package:${context.packageName}")
                 context.startActivity(intent)
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Grant Overlay Permission")
-        }
+            }
+        )
 
         Spacer(Modifier.height(32.dp))
 
