@@ -39,4 +39,8 @@
     <string name="auth_error_google_account_null">Google Sign-In was successful but the account was null.</string>
     <string name="auth_error_google_failed">Google Sign-In failed</string>
     <string name="auth_error_generic">Sign-in failed. Please try again. (Result code: %1$d)</string>
+
+    <!-- Accessibility -->
+    <string name="accessibility_service_description">LaterGator helps you stay focused by monitoring and limiting access to distracting apps based on your preferences.</string>
+
 </resources>
