@@ -93,6 +93,9 @@ class DatabaseHelper(private val context: Context) :
     }
 
     fun createUserProfile(userName: String, tz: String) {
+        if (userName.isBlank()) {
+            return // Do not allow blank names
+        }
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -205,6 +208,43 @@ class DatabaseHelper(private val context: Context) :
             } else {
                 -1
             }
+        }
+    }
+
+    fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Update the is_tracked status in the 'apps' table
+            val appValues = ContentValues().apply {
+                put("is_tracked", if (isTracked) 1 else 0)
+                put("updated_at_ms", System.currentTimeMillis())
+            }
+            db.update("apps", appValues, "package_name = ?", arrayOf(packageName))
+
+            // Find the app_id for the given package name
+            val cursor = db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName))
+            var appId: Long = -1
+            if (cursor.moveToFirst()) {
+                val appIdIndex = cursor.getColumnIndex("id")
+                if (appIdIndex != -1) {
+                    appId = cursor.getLong(appIdIndex)
+                }
+            }
+            cursor.close()
+
+            // If we found an app_id, update the 'active' status in 'time_limit_prefs'
+            if (appId != -1L) {
+                val prefValues = ContentValues().apply {
+                    put("active", if (isTracked) 1 else 0)
+                    put("updated_at_ms", System.currentTimeMillis())
+                }
+                db.update("time_limit_prefs", prefValues, "app_id = ?", arrayOf(appId.toString()))
+            }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
