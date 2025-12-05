@@ -19,6 +19,7 @@ import androidx.navigation.NavHostController
 import com.latergator.R
 import com.latergator.data.DatabaseHelper
 import com.latergator.ui.components.NavigationButton
+import com.latergator.ui.navigation.POMODORO_GRAPH_ROUTE
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,7 +66,7 @@ fun HomeScreen(navController: NavHostController, onSignOut: () -> Unit) {
 
         NavigationButton(
             text = stringResource(R.string.pomodoro_timer_button),
-            onClick = { navController.navigate("pomodoro") }
+            onClick = { navController.navigate(POMODORO_GRAPH_ROUTE) } // Navigate to the graph
         )
 
         NavigationButton(

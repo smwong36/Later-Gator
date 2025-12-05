@@ -6,18 +6,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.latergator.data.DatabaseHelper
+import com.latergator.features.pomodoro.BreakScreen
 import com.latergator.features.pomodoro.PomodoroScreen
+import com.latergator.features.pomodoro.StudySetup
 import com.latergator.features.profile.CreateProfileScreen
 import com.latergator.features.profile.HomeScreen
 import com.latergator.features.settings.SelectAppsScreen
 import com.latergator.features.settings.SettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+// Route for the nested navigation graph
+const val POMODORO_GRAPH_ROUTE = "pomodoro_graph"
 
 @Composable
 fun MainNavigation(modifier: Modifier = Modifier, onSignOut: () -> Unit) {
@@ -51,9 +58,19 @@ fun AppNavHost(
         NavHost(navController = navController, startDestination = startDestination!!, modifier = modifier) {
             composable("home") { HomeScreen(navController, onSignOut = onSignOut) }
             composable("create_profile") { CreateProfileScreen(navController) }
-            composable("pomodoro") { PomodoroScreen(navController) }
+            // Add the nested pomodoro graph to the main NavHost
+            pomodoroGraph(navController)
             composable("settings") { SettingsScreen(navController) }
             composable("select_apps") { SelectAppsScreen(navController) }
         }
+    }
+}
+
+// Defines the nested navigation graph for the Pomodoro feature
+fun NavGraphBuilder.pomodoroGraph(navController: NavHostController) {
+    navigation(startDestination = "study_setup", route = POMODORO_GRAPH_ROUTE) {
+        composable("study_setup") { StudySetup(navController) }
+        composable("pomodoro") { PomodoroScreen(navController) }
+        composable("break") { BreakScreen(navController) }
     }
 }
