@@ -1,5 +1,6 @@
 package com.latergator.features.settings
 
+import com.latergator.model.AppInfo
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -31,7 +32,6 @@ import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import com.latergator.R
 import com.latergator.data.DatabaseHelper
-import com.latergator.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
