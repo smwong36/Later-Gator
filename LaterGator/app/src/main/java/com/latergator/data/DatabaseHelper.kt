@@ -211,7 +211,7 @@ class DatabaseHelper(private val context: Context) :
         }
     }
 
-    fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
+    /*fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -247,7 +247,7 @@ class DatabaseHelper(private val context: Context) :
             db.endTransaction()
         }
     }
-
+*/
     fun updateTimeLimit(packageName: String, newLimit: Int?) {
         val db = writableDatabase
         db.beginTransaction()

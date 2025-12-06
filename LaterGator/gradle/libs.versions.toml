@@ -29,7 +29,7 @@ firebase-auth = { module = "com.google.firebase:firebase-auth-ktx", version = "2
 google-auth = { module = "com.google.android.gms:play-services-auth", version = "20.7.0" }
 navigation-compose = { module = "androidx.navigation:navigation-compose", version = "2.7.5" }
 androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
-
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
