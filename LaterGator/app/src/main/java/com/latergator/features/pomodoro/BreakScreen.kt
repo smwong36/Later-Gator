@@ -19,8 +19,16 @@ fun BreakScreen(navController: NavHostController) {
 
     // Shared ViewModel scoped to the navigation graph
     val backStackEntry = remember(navController.currentBackStackEntry) {
-        navController.getBackStackEntry(POMODORO_GRAPH_ROUTE)
+        try {
+            navController.getBackStackEntry(POMODORO_GRAPH_ROUTE)
+        } catch (e: Exception) {
+            null
+        }
     }
+
+    // If backStackEntry is null (e.g. graph destroyed), we exit early
+    if (backStackEntry == null) return
+
     val vm: PomodoroScreens = viewModel(backStackEntry)
 
     // Start break session once
@@ -62,8 +70,10 @@ fun BreakScreen(navController: NavHostController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = {
-            navController.popBackStack(POMODORO_GRAPH_ROUTE, true)
-            navController.navigate("home")
+            vm.stopTimer()
+            navController.navigate("home") {
+                popUpTo(POMODORO_GRAPH_ROUTE) { inclusive = true }
+            }
         }) {
             Text("Back to Home")
         }

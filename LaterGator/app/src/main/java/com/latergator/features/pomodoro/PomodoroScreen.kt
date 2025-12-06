@@ -17,9 +17,18 @@ import java.util.Locale
 fun PomodoroScreen(navController: NavHostController) {
 
     // Shared ViewModel scoped to the navigation graph
+    // We catch exception INSIDE remember block lambda to avoid Composable try-catch error
     val backStackEntry = remember(navController.currentBackStackEntry) {
-        navController.getBackStackEntry(POMODORO_GRAPH_ROUTE)
+        try {
+            navController.getBackStackEntry(POMODORO_GRAPH_ROUTE)
+        } catch (e: Exception) {
+            null
+        }
     }
+
+    // If backStackEntry is null (e.g. graph destroyed), we exit early
+    if (backStackEntry == null) return
+
     val vm: PomodoroScreens = viewModel(backStackEntry)
 
     // Start study session *once* per entry
@@ -65,8 +74,10 @@ fun PomodoroScreen(navController: NavHostController) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(onClick = {
-                    navController.popBackStack(POMODORO_GRAPH_ROUTE, true)
-                    navController.navigate("home")
+                    vm.stopTimer()
+                    navController.navigate("home") {
+                        popUpTo(POMODORO_GRAPH_ROUTE) { inclusive = true }
+                    }
                 }) {
                     Text("Back to Home")
                 }
@@ -83,8 +94,9 @@ fun PomodoroScreen(navController: NavHostController) {
 
             if (vm.completeStudyCycle()) {
                 // All sessions finished → go home
-                navController.popBackStack(POMODORO_GRAPH_ROUTE, true)
-                navController.navigate("home")
+                navController.navigate("home") {
+                    popUpTo(POMODORO_GRAPH_ROUTE) { inclusive = true }
+                }
             } else {
                 // More sessions remain → take a break
                 navController.navigate("break") {
