@@ -13,24 +13,24 @@ class PomodoroScreens : ViewModel() {
     // -----------------------------
     // DEBUG MODE TO SPEED UP TIMER!
     // -----------------------------
-    var debugMode = true            // ← Set to false for real app timing
-    private val studySeconds = if (debugMode) 5 else 25 * 60
-    private val breakSeconds = if (debugMode) 3 else 5 * 60
+    var debugMode = true          // ← Set to false for real app timing
+    private val studySeconds = if (debugMode) 25 else 25 * 60
+    private val breakSeconds = if (debugMode) 5 else 5 * 60
     private val tickSpeed = if (debugMode) 200L else 1000L
     // -----------------------------
 
     var timeRemaining by mutableStateOf(0)
     var isRunning by mutableStateOf(false)
 
-    var totalSessions by mutableStateOf(1)
-    var currentSession by mutableStateOf(1)
+    var totalSessions by mutableStateOf(0)
+    var currentSession by mutableStateOf(0)
     var minutesStudied by mutableStateOf(0)
 
     var mode by mutableStateOf(PomodoroMode.STUDY)
 
     fun setSessionCount(count: Int) {
         totalSessions = count
-        currentSession = 1
+        currentSession = 0
     }
 
     fun startStudy() {
@@ -67,7 +67,7 @@ class PomodoroScreens : ViewModel() {
     }
 
     fun completeStudyCycle(): Boolean {
-        return currentSession > totalSessions
+        return currentSession >= totalSessions
     }
 
     fun stopTimer() {
