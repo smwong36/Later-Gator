@@ -31,24 +31,28 @@ import com.latergator.ui.theme.LaterGatorTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/*
+    Main activity is the entry point got the Later Gator app and it handles
+    the firebase init, google sign in, the auth manager, and the main navigation.
+ */
 class MainActivity : ComponentActivity() {
 
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var auth: FirebaseAuth
-
+    // Initialize Firebase Auth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         FirebaseApp.initializeApp(this)
         auth = FirebaseAuth.getInstance()
-
+        // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
-
+        // Set content view
         setContent {
             var isSignedIn by remember { mutableStateOf(auth.currentUser != null) }
             var signInError by remember { mutableStateOf<String?>(null) }
@@ -82,8 +86,9 @@ class MainActivity : ComponentActivity() {
                     Log.e("AUTH", signInError!!)
                 }
             }
-
+            // Set content UI theme
             LaterGatorTheme {
+                // Authenticated UI
                 if (isSignedIn) {
                     // This effect runs once when the app starts with a user already signed in.
                     val context = LocalContext.current
@@ -98,6 +103,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 } else {
+                    // sign in UI
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

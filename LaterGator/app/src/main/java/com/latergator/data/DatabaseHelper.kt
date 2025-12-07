@@ -17,14 +17,21 @@ data class AppConfig(
     val dailySnoozeLimit: Int, // Max snoozes per day
     val weeklySnoozeLimit: Int // Max snoozes per week
 )
-
+/* Holds all configuration for a tracked app
+ - whether it is currently blocked or not
+ - how much time has been used today
+ - the daily time limit
+ */
 data class AppUsageStatus(
     val appId: Int,
     val isBlocked: Boolean,
     val usedMinutes: Int,
     val limitMinutes: Int
 )
-
+/*
+    Database helper is responsible for creating and managing the SQLite database
+    and tables
+ */
 class DatabaseHelper(private val context: Context) :
     SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
 
@@ -37,11 +44,11 @@ class DatabaseHelper(private val context: Context) :
     init {
         createDatabaseIfNotExists()
     }
-
+    // Returns the path to the database file
     private fun dbPath(): String {
         return context.applicationInfo.dataDir + DB_PATH_SUFFIX + DB_NAME
     }
-
+    // Creates the database if it doesn't exist
     private fun createDatabaseIfNotExists() {
         val dbFile = context.getDatabasePath(DB_NAME)
         if (!dbFile.exists()) {
@@ -51,7 +58,7 @@ class DatabaseHelper(private val context: Context) :
             copyDatabaseFromAssets()
         }
     }
-
+    // Copies the database from assets to the application's database directory
     private fun copyDatabaseFromAssets() {
         try {
             val dbPath = context.getDatabasePath(DB_NAME)
@@ -84,14 +91,14 @@ class DatabaseHelper(private val context: Context) :
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Handle DB upgrades if needed
     }
-
+    // Helper function to check if the profile exists in the database and return true if it does
     fun hasProfile(): Boolean {
         val db = readableDatabase
         return db.rawQuery("SELECT id FROM profile LIMIT 1", null).use { cursor ->
             cursor.moveToFirst()
         }
     }
-
+    // Helper function to create a new user profile and insert it into the database
     fun createUserProfile(userName: String, tz: String) {
         if (userName.isBlank()) {
             return // Do not allow blank names
@@ -199,7 +206,7 @@ class DatabaseHelper(private val context: Context) :
         }
         return appConfigs
     }
-
+    // Helper function to get the app's ID from the database
     fun getAppId(packageName: String): Int {
         val db = readableDatabase
         return db.rawQuery("SELECT id FROM apps WHERE package_name = ?", arrayOf(packageName)).use { cursor ->
@@ -296,7 +303,7 @@ class DatabaseHelper(private val context: Context) :
             db.endTransaction()
         }
     }
-
+    // Helper function to update the snooze limit for a given app
     fun updateSnoozeLimit(packageName: String, dailyLimit: Int, weeklyLimit: Int) {
         val db = writableDatabase
         db.beginTransaction()
@@ -326,7 +333,7 @@ class DatabaseHelper(private val context: Context) :
                 "app_id = ? AND scope = ?",
                 arrayOf(appId.toString(), "per_app")
             )
-
+            // If no rows were updated, insert a new row
             if (updatedRows == 0) {
                 // Need to insert new row. Must provide all NOT NULL columns.
                 values.put("app_id", appId)
@@ -346,7 +353,7 @@ class DatabaseHelper(private val context: Context) :
             db.endTransaction()
         }
     }
-
+    // Helper function to set the tracking status for an app
     fun setAppTrackingAndActiveStatus(packageName: String, isTracked: Boolean) {
         val db = writableDatabase
         db.beginTransaction()
@@ -370,7 +377,7 @@ class DatabaseHelper(private val context: Context) :
                 }
             }
             cursor.close()
-
+            // If we found an app_id, update the 'active' status in 'time_limit_prefs'
             if (appId != -1L) {
                 // 1. Update time_limit_prefs
                 val prefValues = ContentValues().apply {
@@ -770,7 +777,7 @@ class DatabaseHelper(private val context: Context) :
         val snoozeEnd = lastSnoozeTime + (durationMinutes * 60_000L)
         return now < snoozeEnd
     }
-
+    // Helper function to check if the profile exists in the database and return true if it does
     fun getAppUsageStatus(packageName: String): AppUsageStatus? {
         val db = readableDatabase
         // 1. Get App ID
