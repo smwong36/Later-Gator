@@ -20,12 +20,12 @@ class PomodoroScreens : ViewModel() {
     // -----------------------------
     // Debug Mode to speed up time
     // -----------------------------
-    var debugMode = false          // Set to false for real app timing
+    var debugMode = true          // Set to false for real app timing
     private val studySeconds = if (debugMode) 25 else 25 * 60
     private val breakSeconds = if (debugMode) 5 else 5 * 60
     private val tickSpeed = if (debugMode) 200L else 1000L
     // -----------------------------
-    // remaining time in seconds of sesssion
+    // remaining time in seconds of session
     var timeRemaining by mutableStateOf(0)
     // Flags if timer is running
     var isRunning by mutableStateOf(false)
