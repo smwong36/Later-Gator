@@ -70,6 +70,38 @@ A record of challenges our team faced during the CEN3031 project, how we solved 
 
 ---
 
+### 8. Tool Incompatibility & Major Technical Pivot (11/1–11/10)
+**Challenge:**: Room + React Native were fundamentally incompatible due to KSP/KAPT generating Kotlin metadata that React Native could not compile. This caused repeated build failures and blocked development.
+**Impact:**: This issue stalled progress for several days, increased team frustration, and jeopardized our ability to complete Sprint 2 deliverables.
+**Resolution:**: We investigated the root cause across different devices, removed Room entirely, pivoted to a pre-populated SQLite solution, and rebuilt the data layer to restore project stability.
+**Interview Framing:**: *“We discovered a toolchain incompatibility that broke our build. After analyzing the root cause, we pivoted to an alternative architecture and restored momentum quickly.”*
+
+---
+
+### 9. Oversized Tasks & Scope Creep
+**Challenge:**: Several backlog items were too large, ambiguous, or unclear in scope.
+**Impact:**: This made estimation inaccurate, slowed down progress, and caused one blocked task to hold up unrelated areas of development.
+**Resolution:**: We broke tasks into smaller, well-defined units, used test cases to clarify requirements, and defined clear boundaries at the moment each task was created.
+**Interview Framing:**: *“We shifted to smaller, testable tasks, which improved estimation accuracy and increased our development velocity.”*
+
+---
+
+### 10. Emotional Highs/Lows & Maintaining Morale
+**Challenge:**: Retrospectives revealed emotional swings due to ongoing technical setbacks and uncertainty about building a fully functional prototype.
+**Impact:**: This created moments of discouragement and increased stress during difficult debugging periods.
+**Resolution:**: We incorporated paired programming for complex issues, used timeline visualizations to acknowledge shared struggles, and reinforced a supportive team culture.
+**Interview Framing:**: *“We maintained strong morale during difficult periods by supporting each other, collaborating more closely, and normalizing the learning curve.”*
+
+---
+
+### 11. Mid-Sprint Replanning After the Technical Pivot
+**Challenge:**: Removing Room invalidated most of the original Sprint 2 plan.
+**Impact:**: This rendered several tasks irrelevant, required immediate backlog restructuring, and increased pressure due to approaching deadlines.
+**Resolution:**: We rebuilt the backlog around MVP-critical functionality, clarified the new architectural direction, and deprioritized non-essential stretch goals to keep the sprint achievable.
+**Interview Framing:**: *“We demonstrated agility by reorganizing the sprint mid-stream and recalibrating our backlog to deliver the most critical pieces despite major changes.”*
+
+---
+
 ## Notes for Future Tracking
 - Add new entries as they happen (with date if helpful).  
 - Use this file as a reflection tool before presentations or interviews.  
