@@ -9,13 +9,13 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-
+// Tests for the DatabaseHelper class that interact with the SQLite database
 @RunWith(AndroidJUnit4::class)
 class DatabaseOperationsTest {
-
+    // Initialize DatabaseHelper and clear test data before each test
     private lateinit var dbHelper: DatabaseHelper
     private val testPackageName = "com.latergator.testapp"
-
+    // Set up the test environment
     @Before
     fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -23,13 +23,13 @@ class DatabaseOperationsTest {
         clearTestData()
         insertTestApp()
     }
-
+    // tear down the test environment
     @After
     fun tearDown() {
         clearTestData()
         dbHelper.close()
     }
-
+    // Clear test data from the database
     private fun clearTestData() {
         val db = dbHelper.writableDatabase
         // Clear profile table for profile tests
@@ -44,7 +44,7 @@ class DatabaseOperationsTest {
         cursor.close()
         db.delete("apps", "package_name = ?", arrayOf(testPackageName))
     }
-
+    // Insert a test app into the database
     private fun insertTestApp() {
         val db = dbHelper.writableDatabase
         val values = ContentValues().apply {
@@ -56,7 +56,7 @@ class DatabaseOperationsTest {
         }
         db.insert("apps", null, values)
     }
-
+    // Tests for profile operations
     @Test
     fun testUserProfileCreationAndUpdate() {
         // 1. Initially, no profile should exist
@@ -77,7 +77,7 @@ class DatabaseOperationsTest {
         // 5. Verify the name was updated
         assertEquals("Username should be updated correctly", updatedName, dbHelper.getUserProfileName())
     }
-
+    // Tests for app tracking operations
     @Test
     fun testIgnoreBlankName() {
         // 1. Attempt to create a user with a blank name

@@ -50,9 +50,9 @@ import com.latergator.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+// Data classes for tracking apps and their configurations
 data class TrackedApp(val appInfo: AppInfo, val config: AppConfig)
-
+// Settings screen for the app
 @Composable
 fun SettingsScreen(navController: NavHostController) {
     val context = LocalContext.current
@@ -75,7 +75,7 @@ fun SettingsScreen(navController: NavHostController) {
             userName = dbHelper.getUserProfileName() ?: ""
         }
     }
-
+    // Observe lifecycle to update permissions
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -257,7 +257,7 @@ fun SettingsScreen(navController: NavHostController) {
         }
     }
 }
-
+// Helper composable for displaying permission status
 @Composable
 fun PermissionStatusRow(label: String, hasPermission: Boolean, onClick: () -> Unit) {
     Row(
@@ -276,7 +276,7 @@ fun PermissionStatusRow(label: String, hasPermission: Boolean, onClick: () -> Un
         }
     }
 }
-
+// Tracked App Row and Settings
 @Composable
 private fun TrackedAppRow(
     trackedApp: TrackedApp,
@@ -290,7 +290,7 @@ private fun TrackedAppRow(
     // Determine if snooze settings should be enabled
     // Enabled only if there is a valid time limit (slider >= 0)
     val isSnoozeEnabled = sliderPosition >= 0
-
+    // UI layout
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -367,7 +367,7 @@ private fun TrackedAppRow(
         }
     }
 }
-
+// Stepper for snoozes
 @Composable
 private fun SnoozeStepper(
     label: String,
@@ -407,7 +407,8 @@ private fun SnoozeStepper(
         }
     }
 }
-
+// Helper functions for permissions
+//Checks whether the app has permission to access Usage Stats , the app time
 private fun hasUsageStatsPermission(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     val mode = appOps.checkOpNoThrow(
@@ -417,7 +418,7 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
     )
     return mode == AppOpsManager.MODE_ALLOWED
 }
-
+// Checks whether the app has accessibility service enabled
 private fun isAccessibilityServiceEnabled(context: Context): Boolean {
     val service = "${context.packageName}/${BlockingAccessibilityService::class.java.canonicalName}"
     try {
@@ -438,7 +439,7 @@ private fun isAccessibilityServiceEnabled(context: Context): Boolean {
     }
     return false
 }
-
+// gets tracked app details
 private fun getTrackedAppDetails(context: Context, configs: List<AppConfig>): List<TrackedApp> {
     val pm = context.packageManager
     // Map the AppConfig list to TrackedApp objects

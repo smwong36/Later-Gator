@@ -19,10 +19,11 @@ import androidx.navigation.NavHostController
 import com.latergator.R
 import com.latergator.data.DatabaseHelper
 import com.latergator.ui.components.NavigationButton
+import com.latergator.ui.navigation.POMODORO_GRAPH_ROUTE
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+// Home screen for the app with a welcome message and navigation buttons
 @Composable
 fun HomeScreen(navController: NavHostController, onSignOut: () -> Unit) {
     val context = LocalContext.current
@@ -55,24 +56,24 @@ fun HomeScreen(navController: NavHostController, onSignOut: () -> Unit) {
             "Welcome to Later Gator"
         }
     }
-
+    // Content of the home screen
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = welcomeMessage, modifier = Modifier.padding(bottom = 32.dp))
-
+        // Navigation buttons for different features
         NavigationButton(
             text = stringResource(R.string.pomodoro_timer_button),
-            onClick = { navController.navigate("pomodoro") }
+            onClick = { navController.navigate(POMODORO_GRAPH_ROUTE) } // Navigate to the graph
         )
-
+        // Navigate to the select apps screen
         NavigationButton(
             text = stringResource(R.string.settings_button),
             onClick = { navController.navigate("settings") }
         )
-
+        // Sign out button
         Button(onClick = onSignOut, modifier = Modifier.padding(top = 32.dp)) {
             Text(stringResource(R.string.sign_out))
         }

@@ -10,9 +10,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.latergator.MainActivity
 import com.latergator.data.DatabaseHelper
 
+// Helper object for authentication and authorization
 object AuthManager {
     private val auth = FirebaseAuth.getInstance()
-
+    // Handles the result of a Google Sign-In request and signs the user in with Firebase.
     fun handleSignInResult(context: Context, account: GoogleSignInAccount, onResult: (Boolean, String?) -> Unit) {
         val credential = GoogleAuthProvider.getCredential(account.idToken, null)
         auth.signInWithCredential(credential)
@@ -24,7 +25,7 @@ object AuthManager {
                 }
             }
     }
-
+    // Signs the user out of Firebase and the app
     fun signOut(activity: Activity, googleSignInClient: GoogleSignInClient) {
         googleSignInClient.signOut().addOnCompleteListener {
             auth.signOut()

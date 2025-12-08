@@ -40,7 +40,6 @@ android {
     buildFeatures {
         compose = true
     }
-
 }
 
 dependencies {
@@ -52,8 +51,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.navigation.compose)
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.androidx.compose.material.icons.extended)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,10 +67,4 @@ dependencies {
     // Firebase
     implementation(libs.firebase.auth)
     implementation(libs.google.auth) // Needed for Google Sign-In
-
-    // Carrie added for Jetpack Compose
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.coil.compose)
 }

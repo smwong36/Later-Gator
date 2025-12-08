@@ -24,14 +24,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.TimeZone
-
+// Creates profile screen for onboarding
 @Composable
 fun CreateProfileScreen(navController: NavHostController) {
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val scope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
-
+// Content of the create profile screen
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -39,6 +39,7 @@ fun CreateProfileScreen(navController: NavHostController) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Title and input fields
         Text(text = stringResource(R.string.create_your_profile), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(32.dp))
         OutlinedTextField(
@@ -49,6 +50,7 @@ fun CreateProfileScreen(navController: NavHostController) {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(16.dp))
+        // Save button and continue
         Button(
             onClick = {
                 if (username.isNotBlank()) {

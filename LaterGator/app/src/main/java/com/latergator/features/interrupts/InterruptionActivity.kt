@@ -38,13 +38,13 @@ import com.latergator.ui.theme.LaterGatorTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+// Activity for the blocked app screen
 class InterruptionActivity : ComponentActivity() {
-
+// action for closing the app
     companion object {
         const val ACTION_CLOSE_APP = "com.latergator.CLOSE_APP"
     }
-
+    // Set up the activity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -63,9 +63,9 @@ class InterruptionActivity : ComponentActivity() {
         )
 
         setFinishOnTouchOutside(false)
-
+        // Get the blocked package from the intent
         val blockedPackage = intent.getStringExtra("BLOCKED_PACKAGE") ?: "this app"
-
+        // Set up the UI
         setContent {
             LaterGatorTheme {
                 BlockedAppScreen(
@@ -76,7 +76,7 @@ class InterruptionActivity : ComponentActivity() {
             }
         }
     }
-
+    // Close the app
     private fun closeApp() {
         val intent = Intent(ACTION_CLOSE_APP)
         intent.setPackage(packageName) // Explicitly target this app
@@ -89,13 +89,14 @@ class InterruptionActivity : ComponentActivity() {
         }, 500)
     }
 }
-
+// Screen for blocked app
 @Composable
 fun BlockedAppScreen(
     packageName: String, 
     onClose: () -> Unit,
     onSnooze: () -> Unit
 ) {
+    // Initialize dependencies
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     val scope = rememberCoroutineScope()
@@ -126,7 +127,7 @@ fun BlockedAppScreen(
     }
 
     val appId = appIdState.value
-
+    // Ui for blocked app
     Box(
         modifier = Modifier
             .fillMaxSize()

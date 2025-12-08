@@ -35,7 +35,9 @@ import com.latergator.data.DatabaseHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+// Screen for selecting apps to track
+// allows the user to select which apps they want to track from their device installed apps
+// Pulls both installed apps and tracked apps
 @Composable
 fun SelectAppsScreen(navController: NavHostController) {
     val context = LocalContext.current
@@ -45,7 +47,7 @@ fun SelectAppsScreen(navController: NavHostController) {
     var trackedApps by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var installedApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-
+    // Loads installed apps and tracked apps on launch
     LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
@@ -54,7 +56,7 @@ fun SelectAppsScreen(navController: NavHostController) {
             isLoading = false
         }
     }
-
+    // ui layout
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,7 +66,7 @@ fun SelectAppsScreen(navController: NavHostController) {
         Text(text = stringResource(R.string.select_apps_screen_title))
 
         Spacer(Modifier.height(16.dp))
-
+        // List of installed apps
         if (isLoading) {
             CircularProgressIndicator()
         } else {
@@ -85,13 +87,13 @@ fun SelectAppsScreen(navController: NavHostController) {
         }
 
         Spacer(Modifier.height(16.dp))
-
+        // Done button to navigate back to the main screen/ prev screen
         Button(onClick = { navController.popBackStack() }) {
             Text(stringResource(R.string.done))
         }
     }
 }
-
+// Row for each app, displays app icon, name, and checkbox for tracking
 @Composable
 private fun AppRow(appInfo: AppInfo, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
@@ -110,7 +112,7 @@ private fun AppRow(appInfo: AppInfo, isChecked: Boolean, onCheckedChange: (Boole
         Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
     }
 }
-
+// Helper function to get all installed apps
 private fun getInstalledApps(context: Context, dbHelper: DatabaseHelper): List<AppInfo> {
     val pm = context.packageManager
     val intent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -118,7 +120,7 @@ private fun getInstalledApps(context: Context, dbHelper: DatabaseHelper): List<A
     }
     val allApps = pm.queryIntentActivities(intent, 0)
     val db = dbHelper.writableDatabase
-
+    // Insert all apps into the database
     db.beginTransaction()
     try {
         for (resolveInfo in allApps) {
